@@ -71,6 +71,14 @@ export function FindingsTab({
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
 
+  // Per-run findings for the timeline's severity counter + peek popover. Each
+  // persisted review links to its run via `run_id`; findings are already loaded.
+  const findingsByRun = React.useMemo(() => {
+    const m: Record<string, FindingRecord[]> = {};
+    for (const rv of runs) if (rv.run_id) m[rv.run_id] = rv.findings;
+    return m;
+  }, [runs]);
+
   return (
     <section>
       {liveRunIds.length > 0 && (
@@ -131,6 +139,7 @@ export function FindingsTab({
           <RunHistory
             runs={prRuns ?? []}
             commits={prCommits}
+            findingsByRun={findingsByRun}
             onOpenTrace={handleOpenTrace}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}

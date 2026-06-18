@@ -131,6 +131,30 @@ d('Testcontainers: DB-backed routes via app.inject', () => {
     await app.close();
   });
 
+  it('GET /repos/:id/pulls reports per-severity finding counts from the latest review', async () => {
+    const config = loadConfig({ ...process.env, NODE_ENV: 'test' } as NodeJS.ProcessEnv);
+    const app = await buildApp({
+      config,
+      db: pg.handle.db,
+      overrides: { git: new MockGitClient(), github: new MockGitHubClient() },
+    });
+    // Gather PRs across every repo so the assertion doesn't depend on repo order.
+    const repos = (await app.inject({ method: 'GET', url: '/repos' })).json() as { id: string }[];
+    const all: { findings?: { CRITICAL: number; WARNING: number; SUGGESTION: number } | null }[] = [];
+    for (const r of repos) {
+      all.push(...(await app.inject({ method: 'GET', url: `/repos/${r.id}/pulls` })).json());
+    }
+    // The seeded reviewed PR has one finding of each severity (CRITICAL/WARNING/
+    // SUGGESTION); counts come from its latest review, not summed across runs.
+    const seeded = all.find(
+      (p) => p.findings && p.findings.CRITICAL + p.findings.WARNING + p.findings.SUGGESTION > 0,
+    );
+    expect(seeded?.findings).toEqual({ CRITICAL: 1, WARNING: 1, SUGGESTION: 1 });
+    // PRs that were never reviewed carry null findings (→ list renders "—").
+    expect(all.some((p) => p.findings == null)).toBe(true);
+    await app.close();
+  });
+
   it('POST /repos/:id/poll syncs PR list and does NOT trigger a review', async () => {
     const config = loadConfig({ ...process.env, NODE_ENV: 'test' } as NodeJS.ProcessEnv);
     const app = await buildApp({
