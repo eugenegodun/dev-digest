@@ -6,6 +6,9 @@ grounded structured findings). Fastify 5 + Drizzle ORM over Postgres (pgvector).
 Adapters (LLM, GitHub, git, ast-grep, …) sit behind a DI container so they can be
 swapped for mocks in tests.
 
+> 🗺️ Working in here with an agent? See [CLAUDE.md](./CLAUDE.md) — the lean map
+> of non-obvious facts, conventions, and gotchas.
+
 > This is the **starter** module set. Later course lessons add their own modules
 > (skills, intent/smart-diff, blast, brief/context/onboarding, eval/ci/hooks,
 > memory, plugins, …) — each is a self-contained `modules/<name>/` plugin plus,

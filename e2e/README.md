@@ -8,6 +8,9 @@ agent-browser is a CLI, not a test framework, so this package adds a thin
 convention: each flow is a JSON list of agent-browser commands, run in order
 against one shared browser session by `run.ts`.
 
+> 🗺️ Working in here with an agent? See [CLAUDE.md](./CLAUDE.md) — the lean map
+> of non-obvious facts, conventions, and gotchas.
+
 ## How a flow works
 
 A spec lives in `specs/NN-name.flow.json`:

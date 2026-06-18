@@ -22,6 +22,9 @@ project context into reviews) lives inside the server at
 [`server/src/modules/repo-intel`](server/src/modules/repo-intel). Only
 **Postgres** runs in Docker; the API and web app run on the host via `pnpm dev`.
 
+> 🗺️ Working with an agent? See [CLAUDE.md](./CLAUDE.md) — the lean repo-wide map.
+> Each package has its own (`server/`, `client/`, `reviewer-core/`, `e2e/`).
+
 ## Architecture
 
 ```mermaid

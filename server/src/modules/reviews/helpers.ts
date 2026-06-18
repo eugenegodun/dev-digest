@@ -28,6 +28,11 @@ export interface ReviewDto {
   model: string | null;
   grounding?: string | null;
   created_at: string;
+  // Run cost + token usage, joined from the linked agent_runs row. cost_usd is
+  // computed on read (tokens × model price); null when unpriced/no usage.
+  cost_usd?: number | null;
+  tokens_in?: number | null;
+  tokens_out?: number | null;
   findings: ReviewDtoFinding[];
 }
 
@@ -56,6 +61,7 @@ export function reviewToDto(
   review: ReviewRow,
   findings: FindingRow[],
   agentName?: string | null,
+  usage?: { cost_usd: number | null; tokens_in: number | null; tokens_out: number | null },
 ): ReviewDto {
   return {
     id: review.id,
@@ -69,6 +75,9 @@ export function reviewToDto(
     score: review.score,
     model: review.model,
     created_at: review.createdAt.toISOString(),
+    cost_usd: usage?.cost_usd ?? null,
+    tokens_in: usage?.tokens_in ?? null,
+    tokens_out: usage?.tokens_out ?? null,
     findings: findings.map(findingRowToDto),
   };
 }

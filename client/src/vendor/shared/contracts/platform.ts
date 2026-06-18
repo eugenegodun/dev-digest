@@ -170,6 +170,10 @@ export const PrMeta = z.object({
   updated_at: z.string().nullish(),
   // Latest-review score (list endpoint only; null/absent until reviewed).
   score: z.number().int().nullish(),
+  // Cumulative review cost in USD — sum of all completed runs for this PR
+  // (list endpoint only). Computed on read (tokens × model price); null/absent
+  // when no run produced a priced cost — the UI renders "—", never "$0.00".
+  cost_usd: z.number().nullish(),
 });
 export type PrMeta = z.infer<typeof PrMeta>;
 

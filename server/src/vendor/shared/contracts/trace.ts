@@ -62,6 +62,9 @@ export const RunStats = z.object({
   duration_ms: z.number().int(),
   tokens_in: z.number().int(),
   tokens_out: z.number().int(),
+  // Cost in USD, computed on read (tokens × model price). Null when the model
+  // is unpriced/unknown — the UI renders "—", never "$0.00".
+  cost_usd: z.number().nullable(),
   findings: z.number().int(),
   grounding: z.string(),
 });
@@ -102,6 +105,8 @@ export const RunSummary = z.object({
   duration_ms: z.number().int().nullable(),
   tokens_in: z.number().int().nullable(),
   tokens_out: z.number().int().nullable(),
+  // Cost in USD, computed on read (tokens × model price). Null when unpriced.
+  cost_usd: z.number().nullable(),
   findings_count: z.number().int().nullable(),
   grounding: z.string().nullable(),
   ran_at: z.string().nullable(),

@@ -132,18 +132,41 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       author: 'marisa.koch',
     });
 
+    // a completed agent_run so the PR shows a finished review (with token usage)
+    // before the first live run — this is what the cost badge prices on read.
+    const [seedRun] = await db
+      .insert(t.agentRuns)
+      .values({
+        workspaceId,
+        agentId: null,
+        prId: pr!.id,
+        provider: DEFAULT_PROVIDER,
+        model: DEFAULT_MODEL,
+        status: 'done',
+        durationMs: 8200,
+        tokensIn: 9119,
+        tokensOut: 1210,
+        findingsCount: 2,
+        grounding: '2/3 kept',
+        score: 61,
+        blockers: 1,
+        source: 'local',
+      })
+      .returning();
+
     // a sample review + findings so the PR shows results before the first run
     const [review] = await db
       .insert(t.reviews)
       .values({
         workspaceId,
         prId: pr!.id,
+        runId: seedRun!.id,
         kind: 'review',
         verdict: 'request_changes',
         summary:
           'Solid middleware approach, but a Stripe secret key is committed in plaintext and the user-list endpoint introduces an N+1 query under the new limiter.',
         score: 61,
-        model: 'seed',
+        model: DEFAULT_MODEL,
       })
       .returning();
 
