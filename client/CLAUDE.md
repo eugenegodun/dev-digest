@@ -36,3 +36,5 @@ The studio UI. Canonical overview: [README.md](./README.md). This file is a
 
 - [docs/](./docs) · [specs/](./specs) · [INSIGHTS.md](./INSIGHTS.md)
 - Real browser journeys live in [`../e2e`](../e2e/README.md).
+- Session protocol: read [INSIGHTS.md](./INSIGHTS.md) before work here; capture
+  substantial learnings at session end via the `engineering-insights` skill.

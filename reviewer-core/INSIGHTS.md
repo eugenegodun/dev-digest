@@ -1,18 +1,19 @@
 # Insights — `@devdigest/reviewer-core`
 
 A running log of gotchas and non-obvious decisions that don't earn a line in
-[CLAUDE.md](./CLAUDE.md). Append dated entries; promote the recurring/critical
-ones up into CLAUDE.md's **Gotchas** (one line, must pass the line test:
+[CLAUDE.md](./CLAUDE.md). **Append-only** — never overwrite; correct with a dated
+note. Promote recurring/critical entries up into CLAUDE.md's **Gotchas** (line test:
 "if I remove this, will Claude start making mistakes?").
 
-Format:
+Sections are fixed; append under the matching one. Capture via the
+`engineering-insights` skill. Entry format — cold-actionable, with evidence:
+`- **YYYY-MM-DD** — what to do/avoid and why (evidence: path/file.ts:line)`
 
-```
-## YYYY-MM-DD — short title
-What was surprising, why it matters, and what to do about it.
-```
+## What Works
 
-## Seed — engine invariants
+## What Doesn't Work
+
+## Codebase Patterns
 
 - The package is **pure** by design: the only side effect is the injected
   `LLMProvider` call. Don't add DB/GitHub/filesystem access here — it lives in
@@ -20,4 +21,10 @@ What was surprising, why it matters, and what to do about it.
 - `build` is a type-check; the package never emits JS. The server consumes the
   TS source directly (tsx in dev, vitest in tests).
 
-<!-- Add new entries below. -->
+## Tool & Library Notes
+
+## Recurring Errors & Fixes
+
+## Session Notes
+
+## Open Questions

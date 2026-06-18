@@ -44,3 +44,5 @@ The engine. Canonical overview: [README.md](./README.md). This file is a
 ## More (loaded only when relevant)
 
 - [docs/](./docs) · [specs/](./specs) · [INSIGHTS.md](./INSIGHTS.md)
+- Session protocol: read [INSIGHTS.md](./INSIGHTS.md) before work here; capture
+  substantial learnings at session end via the `engineering-insights` skill.
