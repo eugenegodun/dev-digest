@@ -1,7 +1,8 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { RunSummary, RunTrace } from '@devdigest/shared';
+import { runCost } from '../../../adapters/llm/pricing.js';
 
 // ---- in-flight / history --------------------------------------------------
 
@@ -59,12 +60,34 @@ export async function listRunsForPull(
     duration_ms: run.durationMs,
     tokens_in: run.tokensIn,
     tokens_out: run.tokensOut,
+    cost_usd: runCost(run.model, run.tokensIn, run.tokensOut),
     findings_count: run.findingsCount,
     grounding: run.grounding,
     ran_at: run.ranAt ? run.ranAt.toISOString() : null,
     score: run.score,
     blockers: run.blockers,
   }));
+}
+
+/** Token usage + model for a set of runs, keyed by run id. Used to attach cost
+ *  to review records (which link to a run but don't store its token usage). */
+export async function runUsageByIds(
+  db: Db,
+  runIds: string[],
+): Promise<Map<string, { model: string | null; tokensIn: number | null; tokensOut: number | null }>> {
+  const map = new Map<string, { model: string | null; tokensIn: number | null; tokensOut: number | null }>();
+  if (runIds.length === 0) return map;
+  const rows = await db
+    .select({
+      id: t.agentRuns.id,
+      model: t.agentRuns.model,
+      tokensIn: t.agentRuns.tokensIn,
+      tokensOut: t.agentRuns.tokensOut,
+    })
+    .from(t.agentRuns)
+    .where(inArray(t.agentRuns.id, runIds));
+  for (const r of rows) map.set(r.id, { model: r.model, tokensIn: r.tokensIn, tokensOut: r.tokensOut });
+  return map;
 }
 
 /**
