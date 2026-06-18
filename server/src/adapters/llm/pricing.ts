@@ -39,3 +39,20 @@ export function estimateCost(model: string, tokensIn: number, tokensOut: number)
   if (!p) return null;
   return (tokensIn * p.in + tokensOut * p.out) / 1_000_000;
 }
+
+/**
+ * Null-safe run cost for the cost badge — `tokens × price`, computed on read.
+ * Returns null (→ UI renders "—", never "$0.00") when there's no usable data:
+ * no model, no recorded token usage, or an unpriced/unknown model.
+ */
+export function runCost(
+  model: string | null | undefined,
+  tokensIn: number | null | undefined,
+  tokensOut: number | null | undefined,
+): number | null {
+  if (!model) return null;
+  const ti = tokensIn ?? 0;
+  const to = tokensOut ?? 0;
+  if (ti === 0 && to === 0) return null;
+  return estimateCost(model, ti, to);
+}

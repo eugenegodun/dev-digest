@@ -33,6 +33,12 @@ export const ReviewRecord = z.object({
   model: z.string().nullable(),
   grounding: z.string().nullish(),
   created_at: z.string(),
+  // Run cost + token usage, carried from the linked agent_runs row so the
+  // review-run header & verdict plate render without a second fetch. Computed
+  // on read (tokens × model price); cost_usd null when unpriced → UI shows "—".
+  cost_usd: z.number().nullish(),
+  tokens_in: z.number().int().nullish(),
+  tokens_out: z.number().int().nullish(),
   findings: z.array(FindingRecord),
 });
 export type ReviewRecord = z.infer<typeof ReviewRecord>;

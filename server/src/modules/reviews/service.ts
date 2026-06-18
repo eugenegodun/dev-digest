@@ -7,6 +7,7 @@ import { type ReviewDto, type ReviewDtoFinding } from './helpers.js';
 import { ReviewRunExecutor, type Logger } from './run-executor.js';
 import { actOnFinding as actOnFindingImpl } from './findings.js';
 import { reviewToDto } from './helpers.js';
+import { runCost } from '../../adapters/llm/pricing.js';
 
 // Re-export DTO types + converters for backward-compatible imports from
 // './service.js' (these previously lived here; logic now in ./helpers.ts).
@@ -168,12 +169,32 @@ export class ReviewService {
         if (a) names.set(review.agentId, a.name);
       }
     }
-    return rows.map(({ review, findings }) =>
-      reviewToDto(review, findings, review.agentId ? names.get(review.agentId) : null),
-    );
+    // Attach run cost + token usage (joined from the run each review links to);
+    // cost is computed on read so it tracks the current pricing table.
+    const runIds = rows.map(({ review }) => review.runId).filter((id): id is string => !!id);
+    const usage = await this.repo.runUsageByIds(runIds);
+    return rows.map(({ review, findings }) => {
+      const u = review.runId ? usage.get(review.runId) : undefined;
+      return reviewToDto(review, findings, review.agentId ? names.get(review.agentId) : null, {
+        cost_usd: u ? runCost(u.model, u.tokensIn, u.tokensOut) : null,
+        tokens_in: u?.tokensIn ?? null,
+        tokens_out: u?.tokensOut ?? null,
+      });
+    });
   }
 
   async getRunTrace(runId: string): Promise<RunTrace | undefined> {
-    return this.repo.getRunTrace(runId);
+    const trace = await this.repo.getRunTrace(runId);
+    if (!trace) return trace;
+    // Cost is computed on read (tokens × model price) so it always reflects the
+    // current pricing table and is correct for traces stored/seeded before the
+    // cost badge existed.
+    return {
+      ...trace,
+      stats: {
+        ...trace.stats,
+        cost_usd: runCost(trace.config.model, trace.stats.tokens_in, trace.stats.tokens_out),
+      },
+    };
   }
 }
