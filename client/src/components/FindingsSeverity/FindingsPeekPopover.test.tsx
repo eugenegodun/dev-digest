@@ -44,6 +44,26 @@ describe("FindingsPeekPopover", () => {
     expect(screen.getByText("src/config.ts:12")).toBeInTheDocument();
   });
 
+  it("portals the dialog to document.body so a clipping ancestor can't cut it off", () => {
+    // The trigger lives inside an overflow:hidden ancestor (mirrors the PR-list
+    // tableCard); the popover must escape it by rendering into document.body.
+    const { container } = render(
+      <div style={{ overflow: "hidden" }}>
+        <FindingsPeekPopover
+          counts={{ CRITICAL: 1, WARNING: 0, SUGGESTION: 0 }}
+          findings={[finding()]}
+          title="1 finding"
+        />
+      </div>,
+    );
+    fireEvent.click(screen.getByRole("button"));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.style.position).toBe("fixed");
+    // Rendered outside the (clipped) trigger subtree, directly under body.
+    expect(container.contains(dialog)).toBe(false);
+    expect(document.body.contains(dialog)).toBe(true);
+  });
+
   it("closes on outside click and notifies via onOpenChange", () => {
     const onOpenChange = vi.fn();
     render(

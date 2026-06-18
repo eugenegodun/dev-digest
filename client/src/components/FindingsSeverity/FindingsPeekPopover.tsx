@@ -7,9 +7,39 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import type { Finding } from "@/lib/types";
 import { FindingsBadgeGroup, totalFindings, type SeverityCounts } from "./FindingsBadgeGroup";
 import { FindingPeekItem } from "./FindingPeekItem";
+
+/** Tallest the popover ever gets — also the height we budget when deciding
+ *  whether to open downward or flip above the trigger. */
+const MAX_POPOVER_HEIGHT = 420;
+/** Gap between the trigger and the popover, and the viewport edge padding. */
+const GAP = 6;
+
+/** Fixed-position style for the portaled dialog, anchored to the trigger rect.
+ *  `align` picks the horizontal edge; we flip vertically when there isn't room
+ *  below, and clamp the height to the chosen side so it never leaves the viewport. */
+function computePosition(rect: DOMRect, align: "left" | "right"): React.CSSProperties {
+  const spaceBelow = window.innerHeight - rect.bottom - GAP;
+  const spaceAbove = rect.top - GAP;
+  const flipUp = spaceBelow < MAX_POPOVER_HEIGHT && spaceAbove > spaceBelow;
+
+  const horizontal: React.CSSProperties =
+    align === "right"
+      ? { right: window.innerWidth - rect.right }
+      : { left: rect.left };
+  const vertical: React.CSSProperties = flipUp
+    ? { bottom: window.innerHeight - rect.top + GAP }
+    : { top: rect.bottom + GAP };
+
+  return {
+    ...horizontal,
+    ...vertical,
+    maxHeight: Math.min(MAX_POPOVER_HEIGHT, flipUp ? spaceAbove : spaceBelow),
+  };
+}
 
 export function FindingsPeekPopover({
   counts,
@@ -34,19 +64,40 @@ export function FindingsPeekPopover({
   width?: number;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [pos, setPos] = React.useState<React.CSSProperties | null>(null);
   const ref = React.useRef<HTMLDivElement>(null);
+  const popoverRef = React.useRef<HTMLDivElement>(null);
 
+  // Close on a click outside BOTH the trigger wrapper and the (portaled) dialog —
+  // the dialog lives in document.body, so it isn't inside `ref`.
   React.useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        onOpenChange?.(false);
-      }
+      const target = e.target as Node;
+      if (ref.current?.contains(target) || popoverRef.current?.contains(target)) return;
+      setOpen(false);
+      onOpenChange?.(false);
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [open, onOpenChange]);
+
+  // Anchor the fixed-position dialog to the trigger; re-measure on scroll/resize
+  // (the page scrolls, so the trigger moves relative to the viewport).
+  React.useLayoutEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const rect = ref.current?.getBoundingClientRect();
+      if (rect) setPos(computePosition(rect, align));
+    };
+    measure();
+    window.addEventListener("scroll", measure, true);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", measure);
+    };
+  }, [open, align]);
 
   if (totalFindings(counts) === 0) {
     return <span style={{ color: "var(--text-muted)" }}>—</span>;
@@ -59,7 +110,7 @@ export function FindingsPeekPopover({
   };
 
   return (
-    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
+    <div ref={ref} style={{ display: "inline-block" }}>
       <button
         type="button"
         onClick={toggle}
@@ -68,15 +119,15 @@ export function FindingsPeekPopover({
       >
         <FindingsBadgeGroup counts={counts} />
       </button>
-      {open && (
+      {open &&
+        createPortal(
         <div
           role="dialog"
+          ref={popoverRef}
           style={{
-            position: "absolute",
-            top: "calc(100% + 6px)",
-            [align]: 0,
+            position: "fixed",
+            ...pos,
             width,
-            maxHeight: 420,
             overflowY: "auto",
             background: "var(--bg-elevated)",
             border: "1px solid var(--border-strong)",
@@ -113,8 +164,9 @@ export function FindingsPeekPopover({
           ) : (
             findings.map((f) => <FindingPeekItem key={f.id} f={f} />)
           )}
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </div>
   );
 }
