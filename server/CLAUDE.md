@@ -33,7 +33,7 @@ The engine. Canonical overview: [README.md](./README.md). This file is a
 
 - **Migrations are NOT applied on boot** — run `pnpm db:migrate` first (pgvector enabled by `0000`).
 - Grounding is mandatory; the model's self-reported score is ignored (recomputed from survivors).
-- More non-obvious review-context rules → [insights.md](./insights.md).
+- More non-obvious review-context rules → [INSIGHTS.md](./INSIGHTS.md).
 
 ## Do not touch
 
@@ -43,4 +43,4 @@ The engine. Canonical overview: [README.md](./README.md). This file is a
 
 ## More (loaded only when relevant)
 
-- [docs/](./docs) · [specs/](./specs) · [insights.md](./insights.md)
+- [docs/](./docs) · [specs/](./specs) · [INSIGHTS.md](./INSIGHTS.md)

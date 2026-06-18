@@ -39,4 +39,4 @@ The review engine. Canonical overview: [README.md](./README.md). This file is a
 
 ## More (loaded only when relevant)
 
-- [docs/](./docs) · [specs/](./specs) · [insights.md](./insights.md)
+- [docs/](./docs) · [specs/](./specs) · [INSIGHTS.md](./INSIGHTS.md)

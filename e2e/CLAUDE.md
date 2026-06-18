@@ -39,4 +39,4 @@ file is a **map, not documentation** — non-obvious facts only; docs are linked
 
 ## More (loaded only when relevant)
 
-- [docs/](./docs) · [specs/](./specs) · [insights.md](./insights.md)
+- [docs/](./docs) · [specs/](./specs) · [INSIGHTS.md](./INSIGHTS.md)
