@@ -11,6 +11,9 @@ path alias (`@devdigest/reviewer-core` → `../reviewer-core/src`) and consumes 
 TypeScript **source** directly (tsx in dev, vitest in tests). The package never
 emits JS — its `build` is a type-check.
 
+> 🗺️ Working in here with an agent? See [CLAUDE.md](./CLAUDE.md) — the lean map
+> of non-obvious facts, conventions, and gotchas.
+
 ## Pipeline
 
 ```mermaid

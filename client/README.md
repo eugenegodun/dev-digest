@@ -6,6 +6,9 @@ and author agents. App Router + React Server/Client components, data via
 course lessons add the Skills, Memory, Eval, Blast/Brief, multi-agent, CI, and
 dashboard screens.)
 
+> 🗺️ Working in here with an agent? See [CLAUDE.md](./CLAUDE.md) — the lean map
+> of non-obvious facts, conventions, and gotchas.
+
 - **Stack:** Next.js 15 (App Router), React 19, TanStack Query, `next-intl`
   (messages in `messages/<locale>/*.json`), `recharts`, `mermaid`,
   `react-markdown`. UI primitives are vendored under `src/vendor/ui`
