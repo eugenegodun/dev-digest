@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useCallback } from "react";
-import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
+import { Icon, Badge, Button, SectionLabel, EmptyState, Chip, SEV, type Severity } from "@devdigest/ui";
+import { countsFromFindings, SEVERITY_ORDER } from "@/components/FindingsSeverity";
 import { RunStatus } from "../RunStatus";
 import { RunHistory } from "../RunHistory/RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
@@ -79,6 +80,15 @@ export function FindingsTab({
     return m;
   }, [runs]);
 
+  // Page-level severity filter — clicking a chip narrows every run's FindingsPanel
+  // to that severity; clicking the active chip clears it. Counts span all runs, so
+  // the chip total equals the union of what the panels show once it's selected.
+  const [activeSeverity, setActiveSeverity] = React.useState<Severity | null>(null);
+  const totalCounts = React.useMemo(
+    () => countsFromFindings(runs.flatMap((r) => r.findings)),
+    [runs],
+  );
+
   return (
     <section>
       {liveRunIds.length > 0 && (
@@ -153,6 +163,24 @@ export function FindingsTab({
       >
         Review runs
       </SectionLabel>
+      {totalCounts.CRITICAL + totalCounts.WARNING + totalCounts.SUGGESTION > 0 && (
+        <div style={s.severityFilterBar}>
+          {SEVERITY_ORDER.map((sev) =>
+            totalCounts[sev] > 0 ? (
+              <Chip
+                key={sev}
+                active={activeSeverity === sev}
+                onClick={() => setActiveSeverity(activeSeverity === sev ? null : sev)}
+                icon={SEV[sev].icon}
+                color={SEV[sev].c}
+                count={totalCounts[sev]}
+              >
+                {SEV[sev].label}
+              </Chip>
+            ) : null,
+          )}
+        </div>
+      )}
       {runs.length === 0 ? (
         reviewRunning || liveRunIds.length > 0 ? null : (
           <EmptyState
@@ -173,6 +201,7 @@ export function FindingsTab({
             headSha={headSha}
             targetRunId={target?.runId ?? null}
             targetNonce={target?.n ?? 0}
+            severityFilter={activeSeverity}
           />
         ))
       )}
