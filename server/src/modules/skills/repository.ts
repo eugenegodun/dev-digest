@@ -47,7 +47,17 @@ export class SkillsRepository {
     return row;
   }
 
-  /** Insert a skill AND record version 1 in skill_versions (immutable snapshot). */
+  /** Delete a skill (scoped to workspace). skill_versions and agent_skills cascade.
+   *  Returns false if no such skill existed in the workspace. */
+  async deleteById(workspaceId: string, id: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))
+      .returning({ id: t.skills.id });
+    return rows.length > 0;
+  }
+
+  /** Insert a skill AND record version 1 in skill_versions (immutable body snapshot). */
   async insert(values: InsertSkill): Promise<SkillRow> {
     const [row] = await this.db
       .insert(t.skills)
@@ -62,13 +72,13 @@ export class SkillsRepository {
         version: INITIAL_SKILL_VERSION,
       })
       .returning();
-    await this.snapshotVersion(row!, INITIAL_SKILL_VERSION);
+    await this.snapshotVersion(row!.id, INITIAL_SKILL_VERSION, row!.body);
     return row!;
   }
 
   /**
-   * Update a skill. Any config change (body/type/description change) bumps the
-   * version and snapshots into skill_versions. enabled-only changes do NOT bump.
+   * Update a skill. Any config change bumps the version and snapshots the new
+   * body into skill_versions. Toggling `enabled` alone does NOT bump the version.
    */
   async update(
     workspaceId: string,
@@ -78,7 +88,13 @@ export class SkillsRepository {
     const existing = await this.getById(workspaceId, id);
     if (!existing) return undefined;
 
-    const configChanged = isConfigChange(existing, patch);
+    // body/type/description/name changes bump version; enabled-only toggle does not.
+    const configChanged =
+      (patch.body !== undefined && patch.body !== existing.body) ||
+      (patch.name !== undefined && patch.name !== existing.name) ||
+      (patch.description !== undefined && patch.description !== existing.description) ||
+      (patch.type !== undefined && patch.type !== existing.type);
+
     const nextVersion = configChanged ? existing.version + 1 : existing.version;
 
     const [row] = await this.db
@@ -95,18 +111,17 @@ export class SkillsRepository {
       .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))
       .returning();
 
-    if (configChanged && row) await this.snapshotVersion(row, nextVersion);
+    if (configChanged && row) {
+      await this.snapshotVersion(row.id, nextVersion, row.body);
+    }
     return row;
   }
 
-  /** Delete a skill (scoped to workspace). Versions/agent-links cascade. Returns false if
-   *  no such skill existed in the workspace. */
-  async deleteById(workspaceId: string, id: string): Promise<boolean> {
-    const rows = await this.db
-      .delete(t.skills)
-      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))
-      .returning({ id: t.skills.id });
-    return rows.length > 0;
+  private async snapshotVersion(skillId: string, version: number, body: string): Promise<void> {
+    await this.db
+      .insert(t.skillVersions)
+      .values({ skillId, version, body })
+      .onConflictDoNothing();
   }
 
   // ---- skill_versions (immutable body snapshots) --------------------------
@@ -125,15 +140,46 @@ export class SkillsRepository {
     const [row] = await this.db
       .select()
       .from(t.skillVersions)
-      .where(
-        and(eq(t.skillVersions.skillId, skillId), eq(t.skillVersions.version, version)),
-      );
+      .where(and(eq(t.skillVersions.skillId, skillId), eq(t.skillVersions.version, version)));
     return row;
   }
 
   /**
-   * Agents that have this skill linked. Joins agent_skills → agents.
-   * Returns id/name/enabled from the agents table.
+   * Restore an old version's body as a NEW version on the skill.
+   * Bumps skill.version, inserts a new skill_versions row with the old body.
+   * Does NOT reuse the old version number — history is always immutable.
+   * Returns the updated skill row, or undefined if skill not in workspace.
+   */
+  async restoreVersion(
+    workspaceId: string,
+    skillId: string,
+    version: number,
+  ): Promise<SkillRow | undefined> {
+    const existing = await this.getById(workspaceId, skillId);
+    if (!existing) return undefined;
+
+    const old = await this.getVersion(skillId, version);
+    if (!old) return undefined;
+
+    const nextVersion = existing.version + 1;
+
+    const [row] = await this.db
+      .update(t.skills)
+      .set({ body: old.body, version: nextVersion })
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, skillId)))
+      .returning();
+
+    if (row) {
+      await this.snapshotVersion(skillId, nextVersion, old.body);
+    }
+    return row;
+  }
+
+  // ---- agent_skills read (A1 read side — A2 owns writes) ------------------
+
+  /**
+   * Agents that have this skill linked, along with whether the link is enabled.
+   * Used by the stats endpoint.
    */
   async usedByAgents(
     skillId: string,
@@ -142,7 +188,7 @@ export class SkillsRepository {
       .select({
         id: t.agents.id,
         name: t.agents.name,
-        enabled: t.agents.enabled,
+        enabled: t.agentSkills.enabled,
       })
       .from(t.agentSkills)
       .innerJoin(t.agents, eq(t.agentSkills.agentId, t.agents.id))
@@ -150,27 +196,4 @@ export class SkillsRepository {
       .orderBy(asc(t.agents.name));
     return rows;
   }
-
-  private async snapshotVersion(row: SkillRow, version: number): Promise<void> {
-    await this.db
-      .insert(t.skillVersions)
-      .values({
-        skillId: row.id,
-        version,
-        body: row.body,
-      })
-      .onConflictDoNothing();
-  }
-}
-
-/**
- * True when a patch changes config (body/type/description) vs. just toggling
- * `enabled` — a config change bumps the skill's version and snapshots.
- */
-function isConfigChange(existing: SkillRow, patch: UpdateSkill): boolean {
-  return (
-    (patch.body !== undefined && patch.body !== existing.body) ||
-    (patch.type !== undefined && patch.type !== existing.type) ||
-    (patch.description !== undefined && patch.description !== existing.description)
-  );
 }

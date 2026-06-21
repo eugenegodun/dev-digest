@@ -132,6 +132,16 @@ export const Skill = z.object({
 });
 export type Skill = z.infer<typeof Skill>;
 
+export const SkillStats = z.object({
+  used_by_count: z.number().int(),
+  agents: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    enabled: z.boolean(),
+  })),
+});
+export type SkillStats = z.infer<typeof SkillStats>;
+
 export const CommunitySkill = z.object({
   name: z.string(),
   repo: z.string(),

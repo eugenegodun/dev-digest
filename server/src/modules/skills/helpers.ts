@@ -5,7 +5,7 @@ import type { UpdateSkill } from './repository.js';
 
 /**
  * Pure helpers for the skills module — DB row ⇄ DTO mapping and the
- * config-version-bump rule. No I/O.
+ * body-version-bump rule. No I/O; body_tokens is computed via the injected tokenizer.
  */
 
 /** Map a persisted skill row to the public `Skill` DTO. */

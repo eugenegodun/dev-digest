@@ -1,12 +1,12 @@
+import type { Skill, SkillStats, SkillType, SkillSource } from '@devdigest/shared';
 import type { Container } from '../../platform/container.js';
-import type { Skill } from '@devdigest/shared';
 import { SkillsRepository } from './repository.js';
-import type { InsertSkill, UpdateSkill } from './repository.js';
-import { toSkillDto } from './helpers.js';
 import type { SkillVersionRow } from '../../db/rows.js';
+import { toSkillDto } from './helpers.js';
 
 /**
  * A1 — skills service. Business logic for the Skills tab + Skill Editor.
+ * All methods are workspace-scoped; undefined return = 404 at the route layer.
  *
  * A Skill = type + source + markdown body + enabled. Config changes are versioned
  * via `skill_versions` (repository).
@@ -15,8 +15,8 @@ import type { SkillVersionRow } from '../../db/rows.js';
 export interface CreateSkillInput {
   name: string;
   description?: string;
-  type: InsertSkill['type'];
-  source: InsertSkill['source'];
+  type: SkillType;
+  source: SkillSource;
   body: string;
   enabled?: boolean;
 }
@@ -24,8 +24,8 @@ export interface CreateSkillInput {
 export interface UpdateSkillInput {
   name?: string;
   description?: string;
-  type?: UpdateSkill['type'];
-  source?: UpdateSkill['source'];
+  type?: SkillType;
+  source?: SkillSource;
   body?: string;
   enabled?: boolean;
 }
@@ -65,14 +65,7 @@ export class SkillsService {
     id: string,
     patch: UpdateSkillInput,
   ): Promise<Skill | undefined> {
-    const row = await this.repo.update(workspaceId, id, {
-      ...(patch.name !== undefined ? { name: patch.name } : {}),
-      ...(patch.description !== undefined ? { description: patch.description } : {}),
-      ...(patch.type !== undefined ? { type: patch.type } : {}),
-      ...(patch.source !== undefined ? { source: patch.source } : {}),
-      ...(patch.body !== undefined ? { body: patch.body } : {}),
-      ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
-    });
+    const row = await this.repo.update(workspaceId, id, patch);
     return row ? toSkillDto(row, this.container) : undefined;
   }
 
@@ -82,9 +75,8 @@ export class SkillsService {
   }
 
   /**
-   * Config history for a skill, newest version first. Workspace-scoped: returns
-   * undefined when the skill isn't in this workspace (the route maps that to 404)
-   * so version snapshots can't be read across tenants.
+   * Body snapshots for a skill, newest version first. Returns undefined when
+   * the skill isn't in this workspace (route maps that to 404).
    */
   async listVersions(
     workspaceId: string,
@@ -96,8 +88,8 @@ export class SkillsService {
   }
 
   /**
-   * A single body snapshot for a skill. Returns undefined when the skill isn't
-   * in this workspace OR that version was never recorded (route → 404).
+   * A single body snapshot. Returns undefined when skill isn't in this workspace
+   * OR that version was never recorded (route → 404).
    */
   async getVersion(
     workspaceId: string,
@@ -110,19 +102,29 @@ export class SkillsService {
   }
 
   /**
-   * Stats for a skill: how many agents use it and which ones.
-   * Returns undefined when the skill isn't in this workspace (route → 404).
+   * Restore an old version's body as a new (bumped) version.
+   * History is immutable — the old version number is not reused.
    */
-  async stats(
+  async restoreVersion(
     workspaceId: string,
     skillId: string,
-  ): Promise<
-    | { used_by_count: number; agents: { id: string; name: string; enabled: boolean }[] }
-    | undefined
-  > {
+    version: number,
+  ): Promise<Skill | undefined> {
+    const row = await this.repo.restoreVersion(workspaceId, skillId, version);
+    return row ? toSkillDto(row, this.container) : undefined;
+  }
+
+  /**
+   * Real-data stats: which agents have this skill linked, and is each link enabled.
+   * Returns undefined when the skill isn't in this workspace (route → 404).
+   */
+  async stats(workspaceId: string, skillId: string): Promise<SkillStats | undefined> {
     const skill = await this.repo.getById(workspaceId, skillId);
     if (!skill) return undefined;
     const agents = await this.repo.usedByAgents(skillId);
-    return { used_by_count: agents.length, agents };
+    return {
+      used_by_count: agents.length,
+      agents,
+    };
   }
 }

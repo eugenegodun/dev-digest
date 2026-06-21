@@ -13,18 +13,6 @@ const VersionParams = z.object({
   version: z.coerce.number().int().positive(),
 });
 
-/**
- * A1 — skills module (owner A1).
- *   GET    /skills                        → list (workspace-scoped)
- *   GET    /skills/:id                    → one skill
- *   POST   /skills                        → create
- *   PUT    /skills/:id                    → update / toggle enabled (versions config)
- *   DELETE /skills/:id                    → delete
- *   GET    /skills/:id/versions           → body history (newest first)
- *   GET    /skills/:id/versions/:version  → one body snapshot
- *   GET    /skills/:id/stats              → used-by count + agents list
- */
-
 const CreateSkillBody = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
@@ -42,6 +30,19 @@ const UpdateSkillBody = z.object({
   body: z.string().min(1).optional(),
   enabled: z.boolean().optional(),
 });
+
+/**
+ * A1 — skills module (owner A1).
+ *   GET    /skills                         → list (workspace-scoped)
+ *   GET    /skills/:id                     → one skill
+ *   POST   /skills                         → create → 201
+ *   PUT    /skills/:id                     → update / toggle enabled (versions body)
+ *   DELETE /skills/:id                     → delete
+ *   GET    /skills/:id/versions            → body history (newest first)
+ *   GET    /skills/:id/versions/:version   → one body snapshot
+ *   POST   /skills/:id/versions/:version/restore → restore old body as new version
+ *   GET    /skills/:id/stats               → used-by count + agents list
+ */
 
 export default async function skillsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
@@ -104,13 +105,24 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
     { schema: { params: VersionParams } },
     async (req) => {
       const { workspaceId } = await getContext(app.container, req);
-      const version = await service.getVersion(
+      const version = await service.getVersion(workspaceId, req.params.id, req.params.version);
+      if (!version) throw new NotFoundError('Skill version not found');
+      return version;
+    },
+  );
+
+  app.post(
+    '/skills/:id/versions/:version/restore',
+    { schema: { params: VersionParams } },
+    async (req) => {
+      const { workspaceId } = await getContext(app.container, req);
+      const skill = await service.restoreVersion(
         workspaceId,
         req.params.id,
         req.params.version,
       );
-      if (!version) throw new NotFoundError('Skill version not found');
-      return version;
+      if (!skill) throw new NotFoundError('Skill or version not found');
+      return skill;
     },
   );
 
