@@ -16,6 +16,16 @@ Entry format — cold-actionable, with evidence:
 
 ## What Doesn't Work
 
+- **2026-06-21** — A subagent told to "review these N changed files" **silently drops
+  files when N is large** (~47-file branch diff) — it spot-checks the interesting-looking
+  ones and returns a false clean verdict. The first `pr-self-review` build returned
+  APPROVED while missing two planted criticals (SQLi, XSS), and never dispatched the
+  backend reviewer though a `server/**.ts` file was in scope. Fix that worked: treat the
+  diff file-list as authoritative and **reconcile** — each reviewer echoes back
+  `reviewedFiles`, and `reviewed + excluded == total in scope` must hold before emitting
+  a verdict; bucket dispatch is mandatory if ≥1 file matches the bucket
+  (evidence: `.claude/skills/pr-self-review/SKILL.md` steps 3–4).
+
 ## Codebase Patterns
 
 - **2026-06-18** — `@devdigest/shared` Zod contracts are **vendored into BOTH
@@ -27,6 +37,14 @@ Entry format — cold-actionable, with evidence:
   directly, and that's the working convention (evidence: both `*/src/vendor/shared/contracts/trace.ts`).
 
 ## Tool & Library Notes
+
+- **2026-06-21** — A Claude Code **PreToolUse Bash hook that greps the whole stdin JSON
+  payload gets false positives**: the payload contains the command string, so a `git
+  commit -m "...git push..."` or even `grep "git push"` fires a hook meant for real
+  pushes. Fix: parse the actual command with `jq -r '.tool_input.command // ""'` and
+  anchor the match to a statement boundary — `(^|[;&|(]|\s&&\s|\s\|\|\s)\s*(git\s+push|gh\s+pr\s+create)`
+  — so prose/args mentioning the verbs stay quiet while real invocations (incl. `… && git push`)
+  fire (evidence: `.claude/hooks/pr-self-review-reminder.sh`).
 
 ## Recurring Errors & Fixes
 
