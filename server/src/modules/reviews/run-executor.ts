@@ -184,6 +184,11 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // Load this agent's enabled skills (ordered). Disabled skills are
+      // invisible in the prompt and produce no block in the trace.
+      const skillLinks = await this.container.agentsRepo.linkedSkills(agent.id);
+      const skillBodies = skillLinks.filter((l) => l.skill.enabled).map((l) => l.skill.body);
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -204,6 +209,9 @@ export class ReviewRunExecutor {
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
+        // Enabled skills — injected as "## Skills / rules" block. Omitted when
+        // the agent has no linked skills or all are disabled.
+        ...(skillBodies.length > 0 ? { skills: skillBodies } : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),
