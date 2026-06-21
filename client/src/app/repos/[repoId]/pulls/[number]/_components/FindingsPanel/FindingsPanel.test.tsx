@@ -12,25 +12,25 @@ import { FindingsPanel } from "./FindingsPanel";
 
 afterEach(cleanup);
 
+const base = {
+  category: "security",
+  file: "src/config.ts",
+  start_line: 11,
+  end_line: 11,
+  rationale: "A secret is committed.",
+  suggestion: null,
+  confidence: 0.95,
+  kind: "finding",
+  trifecta_components: null,
+  evidence: null,
+  review_id: "r1",
+  accepted_at: null,
+  dismissed_at: null,
+} as const;
+
 const FINDINGS: FindingRecord[] = [
-  {
-    id: "f1",
-    severity: "CRITICAL",
-    category: "security",
-    title: "Hardcoded secret",
-    file: "src/config.ts",
-    start_line: 11,
-    end_line: 11,
-    rationale: "A secret is committed.",
-    suggestion: null,
-    confidence: 0.95,
-    kind: "finding",
-    trifecta_components: null,
-    evidence: null,
-    review_id: "r1",
-    accepted_at: null,
-    dismissed_at: null,
-  },
+  { ...base, id: "f1", severity: "CRITICAL", title: "Hardcoded secret" },
+  { ...base, id: "f2", severity: "WARNING", title: "Unhandled rejection" },
 ];
 
 function renderWithIntl(ui: React.ReactElement) {
@@ -51,5 +51,17 @@ describe("FindingsPanel (smoke)", () => {
   it("shows the empty state when nothing matches", () => {
     renderWithIntl(<FindingsPanel findings={[]} prId="pr1" />);
     expect(screen.getByText("No findings match")).toBeInTheDocument();
+  });
+
+  it("shows all severities when no severityFilter is set", () => {
+    renderWithIntl(<FindingsPanel findings={FINDINGS} prId="pr1" />);
+    expect(screen.getByText("Hardcoded secret")).toBeInTheDocument();
+    expect(screen.getByText("Unhandled rejection")).toBeInTheDocument();
+  });
+
+  it("keeps only the matching severity when severityFilter is set", () => {
+    renderWithIntl(<FindingsPanel findings={FINDINGS} prId="pr1" severityFilter="CRITICAL" />);
+    expect(screen.getByText("Hardcoded secret")).toBeInTheDocument();
+    expect(screen.queryByText("Unhandled rejection")).not.toBeInTheDocument();
   });
 });

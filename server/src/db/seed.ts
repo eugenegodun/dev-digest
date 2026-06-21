@@ -146,7 +146,7 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
         durationMs: 8200,
         tokensIn: 9119,
         tokensOut: 1210,
-        findingsCount: 2,
+        findingsCount: 3,
         grounding: '2/3 kept',
         score: 61,
         blockers: 1,
@@ -194,6 +194,18 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
         rationale: 'Loop issues one query per user → N+1.',
         suggestion: 'Use a single IN query and group in memory.',
         confidence: 0.86,
+      },
+      {
+        reviewId: review!.id,
+        file: 'src/middleware/ratelimit.ts',
+        startLine: 28,
+        endLine: 28,
+        severity: 'SUGGESTION',
+        category: 'style',
+        title: 'Extract magic number 3600',
+        rationale: 'The number 3600 appears twice without explanation; a reader has to infer it means seconds-in-an-hour.',
+        suggestion: 'Hoist to a named constant `SECONDS_PER_HOUR`.',
+        confidence: 0.62,
       },
     ]);
   }
