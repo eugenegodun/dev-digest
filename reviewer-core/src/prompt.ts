@@ -126,6 +126,8 @@ export function assemblePrompt(parts: PromptParts): AssembledPrompt {
     { role: 'user', content: user },
   ];
 
+  // Approximate token counts using the chars/4 heuristic (no tokenizer in the
+  // pure reviewer-core package — avoids bundle / dependency bloat).
   const assembly: PromptAssembly = {
     system,
     skills: skillsBlock ?? null,
@@ -135,6 +137,17 @@ export function assemblePrompt(parts: PromptParts): AssembledPrompt {
     repo_map: parts.repoMap ?? null,
     pr_description: prDescription ?? null,
     user,
+    tokens_by_block: {
+      system: Math.ceil(system.length / 4),
+      ...(skillsBlock ? { skills: Math.ceil(skillsBlock.length / 4) } : {}),
+      ...(memoryBlock ? { memory: Math.ceil(memoryBlock.length / 4) } : {}),
+      ...(specsBlock ? { specs: Math.ceil(specsBlock.length / 4) } : {}),
+      ...(parts.callers ? { callers: Math.ceil(parts.callers.length / 4) } : {}),
+      ...(parts.repoMap ? { repo_map: Math.ceil(parts.repoMap.length / 4) } : {}),
+      ...(prDescription ? { pr_description: Math.ceil(prDescription.length / 4) } : {}),
+      user: Math.ceil(user.length / 4),
+    },
+    tokens_total: Math.ceil((system.length + user.length) / 4),
   };
 
   return { messages, assembly };
