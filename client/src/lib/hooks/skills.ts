@@ -1,4 +1,5 @@
-/* hooks/skills.ts — React Query hooks for the Skills Lab feature (Phase 5). */
+/* hooks/skills.ts — React Query hooks for the Skills Lab feature (Phase 5+).
+   Covers workspace skill CRUD, versions, stats, and per-agent skill link management. */
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -112,7 +113,7 @@ export function useSkillStats(id: string | null | undefined) {
   });
 }
 
-// ---- Agent skills ----
+// ---- Agent ↔ skill links ----
 
 export function useAgentSkills(agentId: string | null | undefined) {
   return useQuery({
@@ -122,11 +123,20 @@ export function useAgentSkills(agentId: string | null | undefined) {
   });
 }
 
+/**
+ * Set the full ordered list of skill IDs for an agent.
+ * POST /agents/:id/skills { skill_ids: string[] }
+ *
+ * Note: the current endpoint only accepts an ordered array of IDs.
+ * Per-link `enabled` toggling requires the `agent_skills.enabled` column to be
+ * added (spec §4) and the SetSkillsBody schema to be extended — tracked as a
+ * follow-up (TODO: wire enabled per-link once the schema migration lands).
+ */
 export function useSetAgentSkills() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ agentId, links }: { agentId: string; links: AgentSkillLink[] }) =>
-      api.post<AgentSkillLink[]>(`/agents/${agentId}/skills`, links),
+    mutationFn: ({ agentId, skillIds }: { agentId: string; skillIds: string[] }) =>
+      api.post<AgentSkillLink[]>(`/agents/${agentId}/skills`, { skill_ids: skillIds }),
     onSuccess: (_data, { agentId }) => {
       qc.invalidateQueries({ queryKey: ["agent", agentId, "skills"] });
     },
