@@ -1,11 +1,13 @@
-/* SkillEditor — tabbed editor shell (Config, Preview, Stats, Versions).
-   Phase 5: Config tab only. */
+/* SkillEditor — tabbed editor shell (Config, Preview, Stats, Versions). */
 "use client";
 
 import React from "react";
 import { Tabs } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { ConfigTab } from "./_components/ConfigTab";
+import { PreviewTab } from "./_components/PreviewTab";
+import { StatsTab } from "./_components/StatsTab";
+import { VersionsTab } from "./_components/VersionsTab";
 import { TABS } from "./constants";
 import { s } from "./styles";
 
@@ -20,12 +22,18 @@ export function SkillEditor({
 }) {
   const tabs = TABS.map((tb) => ({ key: tb.key, label: tb.label, icon: tb.icon }));
 
-  const body =
-    tab === "config" ? (
-      <ConfigTab skill={skill} />
-    ) : (
-      <div style={s.placeholder}>This tab is available in a future release.</div>
-    );
+  let body: React.ReactNode;
+  if (tab === "config") {
+    body = <ConfigTab skill={skill} />;
+  } else if (tab === "preview") {
+    body = <PreviewTab skill={skill} />;
+  } else if (tab === "stats") {
+    body = <StatsTab skillId={skill.id} />;
+  } else if (tab === "versions") {
+    body = <VersionsTab skill={skill} />;
+  } else {
+    body = <div style={s.placeholder}>This tab is available in a future release.</div>;
+  }
 
   return (
     <div style={s.wrap}>
