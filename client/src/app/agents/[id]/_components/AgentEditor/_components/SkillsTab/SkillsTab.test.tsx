@@ -44,6 +44,7 @@ const ALL_SKILLS: Skill[] = [
     body: "# Security\nCheck for secrets.",
     enabled: true,
     version: 1,
+    body_tokens: 10,
     evidence_files: [],
   },
   {
@@ -55,6 +56,7 @@ const ALL_SKILLS: Skill[] = [
     body: "# Style\nFollow conventions.",
     enabled: true,
     version: 1,
+    body_tokens: 8,
     evidence_files: [],
   },
   {
@@ -66,14 +68,15 @@ const ALL_SKILLS: Skill[] = [
     body: "# Tests\nEnsure coverage.",
     enabled: true,
     version: 1,
+    body_tokens: 6,
     evidence_files: [],
   },
 ];
 
 // Agent has sk1 (order 0) and sk2 (order 1) attached; sk3 is available to add.
 const LINKS: AgentSkillLink[] = [
-  { agent_id: "ag1", skill_id: "sk1", order: 0 },
-  { agent_id: "ag1", skill_id: "sk2", order: 1 },
+  { agent_id: "ag1", skill_id: "sk1", order: 0, enabled: true },
+  { agent_id: "ag1", skill_id: "sk2", order: 1, enabled: true },
 ];
 
 // ---------------------------------------------------------------------------
