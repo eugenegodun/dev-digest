@@ -6,6 +6,13 @@ import {
   GENERAL_REVIEWER_PROMPT,
   SECURITY_REVIEWER_PROMPT,
   PERFORMANCE_REVIEWER_PROMPT,
+  UNCOVERED_BRANCH_RUBRIC,
+  CORNER_CASE_CHECKLIST,
+  OVER_MOCKING_GATE,
+  FLAKY_TEST_SMELLS,
+  API_CONTRACT_BREAKING_CHANGE,
+  TEST_QUALITY_REVIEWER_PROMPT,
+  API_CONTRACT_REVIEWER_PROMPT,
 } from './seed-prompts.js';
 
 /** Default provider/model for the built-in reviewer agents. */
@@ -241,6 +248,279 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       .from(t.agents)
       .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, a.name)));
     if (!existing) await db.insert(t.agents).values(a);
+  }
+
+  // ---- skills (manual source) ----
+  const seedSkills: Array<{ slug: string; row: typeof t.skills.$inferInsert }> = [
+    {
+      slug: 'uncovered-branch-rubric',
+      row: {
+        workspaceId,
+        name: 'uncovered-branch-rubric',
+        description: 'Verifies every conditional branch has corresponding test coverage.',
+        type: 'rubric',
+        source: 'manual',
+        body: UNCOVERED_BRANCH_RUBRIC,
+      },
+    },
+    {
+      slug: 'corner-case-checklist',
+      row: {
+        workspaceId,
+        name: 'corner-case-checklist',
+        description: 'Checklist of common missed corner cases: empty, null, boundary, concurrent.',
+        type: 'convention',
+        source: 'manual',
+        body: CORNER_CASE_CHECKLIST,
+      },
+    },
+    {
+      slug: 'over-mocking-gate',
+      row: {
+        workspaceId,
+        name: 'over-mocking-gate',
+        description: 'Flags tests that mock too deeply and miss real integration failures.',
+        type: 'rubric',
+        source: 'manual',
+        body: OVER_MOCKING_GATE,
+      },
+    },
+    {
+      slug: 'flaky-test-smells',
+      row: {
+        workspaceId,
+        name: 'flaky-test-smells',
+        description: 'Detects timing-dependent, random, or globally-stateful test patterns.',
+        type: 'convention',
+        source: 'manual',
+        body: FLAKY_TEST_SMELLS,
+      },
+    },
+    {
+      slug: 'api-contract-breaking-change',
+      row: {
+        workspaceId,
+        name: 'api-contract-breaking-change',
+        description: 'Detects breaking changes to API contracts: removed fields, renamed routes, type changes.',
+        type: 'security',
+        source: 'manual',
+        body: API_CONTRACT_BREAKING_CHANGE,
+      },
+    },
+  ];
+
+  const skillIdByName: Record<string, string> = {};
+  for (const { row } of seedSkills) {
+    const [existing] = await db
+      .select()
+      .from(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.name, row.name)));
+    if (existing) {
+      skillIdByName[row.name] = existing.id;
+    } else {
+      const [inserted] = await db.insert(t.skills).values(row).returning();
+      skillIdByName[row.name] = inserted!.id;
+    }
+  }
+
+  // ---- new reviewer agents: Test Quality + API Contract ----
+  const newAgents: Array<typeof t.agents.$inferInsert> = [
+    {
+      workspaceId,
+      name: 'Test Quality Reviewer',
+      description: 'Catches uncovered branches, corner cases, over-mocking, and flaky test patterns.',
+      provider: DEFAULT_PROVIDER,
+      model: DEFAULT_MODEL,
+      systemPrompt: TEST_QUALITY_REVIEWER_PROMPT,
+      enabled: true,
+      version: 1,
+      createdBy: userId,
+    },
+    {
+      workspaceId,
+      name: 'API Contract Reviewer',
+      description: 'Flags breaking route-signature and DTO contract changes before merge.',
+      provider: DEFAULT_PROVIDER,
+      model: DEFAULT_MODEL,
+      systemPrompt: API_CONTRACT_REVIEWER_PROMPT,
+      enabled: true,
+      version: 1,
+      createdBy: userId,
+    },
+  ];
+
+  const agentIdByName: Record<string, string> = {};
+  for (const a of newAgents) {
+    const [existing] = await db
+      .select()
+      .from(t.agents)
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, a.name)));
+    if (existing) {
+      agentIdByName[a.name] = existing.id;
+    } else {
+      const [inserted] = await db.insert(t.agents).values(a).returning();
+      agentIdByName[a.name] = inserted!.id;
+    }
+  }
+
+  // ---- agent_skills links ----
+  // Test Quality Reviewer: 4 skills
+  const testQualityAgentId = agentIdByName['Test Quality Reviewer']!;
+  const testQualityLinks = [
+    { skillName: 'uncovered-branch-rubric', order: 0 },
+    { skillName: 'corner-case-checklist', order: 1 },
+    { skillName: 'over-mocking-gate', order: 2 },
+    { skillName: 'flaky-test-smells', order: 3 },
+  ];
+  for (const { skillName, order } of testQualityLinks) {
+    await db
+      .insert(t.agentSkills)
+      .values({
+        agentId: testQualityAgentId,
+        skillId: skillIdByName[skillName]!,
+        order,
+        enabled: true,
+      })
+      .onConflictDoNothing();
+  }
+
+  // API Contract Reviewer: 1 skill
+  const apiContractAgentId = agentIdByName['API Contract Reviewer']!;
+  await db
+    .insert(t.agentSkills)
+    .values({
+      agentId: apiContractAgentId,
+      skillId: skillIdByName['api-contract-breaking-change']!,
+      order: 0,
+      enabled: true,
+    })
+    .onConflictDoNothing();
+
+  // ---- control-experiment PRs ----
+
+  // PR #701 — happy-path only tests
+  let [pr701] = await db
+    .select()
+    .from(t.pullRequests)
+    .where(and(eq(t.pullRequests.repoId, repoId), eq(t.pullRequests.number, 701)));
+  if (!pr701) {
+    [pr701] = await db
+      .insert(t.pullRequests)
+      .values({
+        workspaceId,
+        repoId,
+        number: 701,
+        title: 'feat: add payment retry logic',
+        author: 'dev@acme.com',
+        branch: 'feat/payment-retry',
+        base: 'main',
+        headSha: 'deadbeef701',
+        additions: 62,
+        deletions: 0,
+        filesCount: 2,
+        status: 'needs_review',
+        body: 'Adds exponential backoff for failed payment attempts.',
+      })
+      .returning();
+
+    await db.insert(t.prFiles).values([
+      {
+        prId: pr701!.id,
+        path: 'src/retry.ts',
+        additions: 40,
+        deletions: 0,
+        patch: `@@ -0,0 +1,40 @@
++export async function retryPayment(paymentId: string): Promise<boolean> {
++  const maxAttempts = 3;
++  let attempt = 0;
++  while (attempt < maxAttempts) {
++    try {
++      const result = await processPayment(paymentId);
++      if (result.success) {
++        return true;
++      } else {
++        attempt++;
++        await sleep(Math.pow(2, attempt) * 1000);
++      }
++    } catch (err) {
++      attempt++;
++      if (attempt >= maxAttempts) {
++        throw err;
++      }
++      await sleep(Math.pow(2, attempt) * 1000);
++    }
++  }
++  return false;
++}`,
+      },
+      {
+        prId: pr701!.id,
+        path: 'src/retry.test.ts',
+        additions: 22,
+        deletions: 0,
+        patch: `@@ -0,0 +1,22 @@
++import { retryPayment } from './retry';
++import { processPayment } from './payment';
++
++jest.mock('./payment');
++
++describe('retryPayment', () => {
++  it('returns true when payment succeeds on first attempt', async () => {
++    (processPayment as jest.Mock).mockResolvedValue({ success: true });
++    const result = await retryPayment('pay_123');
++    expect(result).toBe(true);
++  });
++
++  // NOTE: no test for the failure path (success=false) or the thrown error path
++});`,
+      },
+    ]);
+  }
+
+  // PR #702 — breaking route signature change
+  let [pr702] = await db
+    .select()
+    .from(t.pullRequests)
+    .where(and(eq(t.pullRequests.repoId, repoId), eq(t.pullRequests.number, 702)));
+  if (!pr702) {
+    [pr702] = await db
+      .insert(t.pullRequests)
+      .values({
+        workspaceId,
+        repoId,
+        number: 702,
+        title: 'refactor: rename payment fields for consistency',
+        author: 'dev@acme.com',
+        branch: 'refactor/payment-fields',
+        base: 'main',
+        headSha: 'deadbeef702',
+        additions: 3,
+        deletions: 3,
+        filesCount: 1,
+        status: 'needs_review',
+        body: 'Renames amount_cents to amount in the payment DTO for API consistency.',
+      })
+      .returning();
+
+    await db.insert(t.prFiles).values([
+      {
+        prId: pr702!.id,
+        path: 'src/dto/payment.ts',
+        additions: 3,
+        deletions: 3,
+        patch: `@@ -1,10 +1,10 @@
+ import { z } from 'zod';
+
+ export const PaymentRequestSchema = z.object({
+-  amount_cents: z.number().int().positive(),
++  amount: z.number().positive(),
+   currency: z.string().length(3),
+   recipient_id: z.string().uuid(),
+ });
+
+ export type PaymentRequest = z.infer<typeof PaymentRequestSchema>;`,
+      },
+    ]);
   }
 
   return { workspaceId, userId };
