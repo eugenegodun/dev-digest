@@ -113,6 +113,44 @@ export function useSkillStats(id: string | null | undefined) {
   });
 }
 
+// ---- Import preview ----
+
+export interface ImportSkillPreview {
+  name: string;
+  description: string;
+  type: string;
+  body: string;
+  ignored_files: string[];
+}
+
+/**
+ * POST /skills/import/preview — parse a .md or .zip upload server-side and
+ * return the extracted skill core.  Nothing is persisted until the user
+ * confirms by calling useCreateSkill.
+ */
+export function useImportSkillPreview() {
+  return useMutation({
+    mutationFn: async (file: File): Promise<ImportSkillPreview> => {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`${(await import("../api")).API_BASE}/skills/import/preview`, {
+        method: "POST",
+        body: form,
+        // Do NOT set Content-Type — let the browser set multipart/form-data with boundary
+      });
+      if (!res.ok) {
+        let message = `${res.status} ${res.statusText}`;
+        try {
+          const body = await res.json();
+          if (body?.error?.message) message = body.error.message;
+        } catch { /* non-JSON */ }
+        throw new Error(message);
+      }
+      return res.json() as Promise<ImportSkillPreview>;
+    },
+  });
+}
+
 // ---- Agent ↔ skill links ----
 
 export function useAgentSkills(agentId: string | null | undefined) {

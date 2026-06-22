@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { SkillType, SkillSource } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
-import { NotFoundError } from '../../platform/errors.js';
+import { NotFoundError, AppError } from '../../platform/errors.js';
 import { SkillsService } from './service.js';
 
 /** `/skills/:id/versions/:version` — id is a uuid, version a positive integer. */
@@ -131,5 +131,37 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
     const stats = await service.stats(workspaceId, req.params.id);
     if (!stats) throw new NotFoundError('Skill not found');
     return stats;
+  });
+
+  /**
+   * POST /skills/import/preview
+   *
+   * Accept a multipart file upload (.md or .zip) and return the parsed skill
+   * preview — name, description, type, body, and ignored_files. Nothing is
+   * written to the database; the client calls POST /skills to persist on confirm.
+   */
+  app.post('/skills/import/preview', async (req, reply) => {
+    // @fastify/multipart attaches req.file() when registered.
+    const uploadFn = (req as unknown as { file?: () => Promise<{
+      filename: string;
+      mimetype: string;
+      toBuffer: () => Promise<Buffer>;
+    } | null> }).file;
+
+    if (typeof uploadFn !== 'function') {
+      throw new AppError('multipart_not_supported', 'Multipart plugin is not registered', 500);
+    }
+
+    const upload = await uploadFn.call(req);
+    if (!upload) {
+      throw new AppError('no_file', 'No file was uploaded', 422);
+    }
+
+    const { filename, mimetype } = upload;
+    const buffer = await upload.toBuffer();
+
+    const preview = await service.previewImport({ buffer, mimetype, filename });
+    reply.status(200);
+    return preview;
   });
 }

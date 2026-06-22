@@ -2,7 +2,8 @@ import type { Skill, SkillStats, SkillType, SkillSource } from '@devdigest/share
 import type { Container } from '../../platform/container.js';
 import { SkillsRepository } from './repository.js';
 import type { SkillVersionRow } from '../../db/rows.js';
-import { toSkillDto } from './helpers.js';
+import { toSkillDto, parseMarkdownSkill, parseZipSkill } from './helpers.js';
+import type { ParsedZipSkill } from './helpers.js';
 
 /**
  * A1 — skills service. Business logic for the Skills tab + Skill Editor.
@@ -126,5 +127,33 @@ export class SkillsService {
       used_by_count: agents.length,
       agents,
     };
+  }
+
+  /**
+   * Parse an uploaded file (markdown or zip) and return the extracted skill
+   * preview. Nothing is written to the database.
+   *
+   * @param file.filename   Original filename (used for format detection fallback)
+   * @param file.mimetype   MIME type from the multipart upload
+   * @param file.buffer     Raw file bytes
+   */
+  async previewImport(file: {
+    buffer: Buffer;
+    mimetype: string;
+    filename: string;
+  }): Promise<ParsedZipSkill> {
+    const isZip =
+      file.mimetype === 'application/zip' ||
+      file.mimetype === 'application/x-zip-compressed' ||
+      file.filename.toLowerCase().endsWith('.zip');
+
+    if (isZip) {
+      return parseZipSkill(file.buffer);
+    }
+
+    // Treat as markdown (.md or anything else)
+    const content = file.buffer.toString('utf8');
+    const parsed = parseMarkdownSkill(content);
+    return { ...parsed, ignored_files: [] };
   }
 }
