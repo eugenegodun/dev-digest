@@ -16,6 +16,8 @@ Entry format — cold-actionable, with evidence:
 
 ## What Doesn't Work
 
+- **2026-06-22** — When two parallel-worktree agents both register the same module in `server/src/modules/index.ts` (e.g. Phase 2 adds the import, and a worktree agent also touches the file), the merge produces a **duplicate import** that breaks `tsc`. Fix: instruct later agents to check for existing imports before adding, or reserve index.ts edits to a single sequential agent (evidence: commit 96a9ce8, server/src/modules/index.ts).
+
 - **2026-06-21** — A subagent told to "review these N changed files" **silently drops
   files when N is large** (~47-file branch diff) — it spot-checks the interesting-looking
   ones and returns a false clean verdict. The first `pr-self-review` build returned
@@ -27,6 +29,10 @@ Entry format — cold-actionable, with evidence:
   (evidence: `.claude/skills/pr-self-review/SKILL.md` steps 3–4).
 
 ## Codebase Patterns
+
+- **2026-06-22** — Adding a **required field to a shared Zod contract** (e.g. `body_tokens: z.number().int()` on `Skill`, `enabled: z.boolean()` on `AgentSkillLink`) silently breaks every hand-built test fixture that constructs that type — `tsc` catches it but the error appears far from the contract change. Pattern: after adding any required contract field, `grep -r "body_tokens\|AgentSkillLink\|Skill = {" client/src server/src` and add the field to all fixture objects (evidence: commit 2b59305, SkillsTab.test.tsx:44).
+
+- **2026-06-22** — Parallel worktree agents merge **cleanly when they own strictly disjoint files**. Phase 3 (prompt) owned `trace.ts` + reviewer-core + run-executor + client TraceBody; Phase 4 (versions/stats) owned `knowledge.ts` + skills module. No conflicts. The safe rule: assign one contract file per worktree agent, never split a single contract file across two parallel agents.
 
 - **2026-06-18** — `@devdigest/shared` Zod contracts are **vendored into BOTH
   `client/src/vendor/shared` and `server/src/vendor/shared` with no in-repo source** —
