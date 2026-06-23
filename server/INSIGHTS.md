@@ -13,6 +13,12 @@ Sections are fixed; append under the matching one. Capture via the
 
 ## What Doesn't Work
 
+- **2026-06-23** — `pnpm db:generate` can emit the migration `.sql` + `meta/00NN_snapshot.json`
+  but **leave `meta/_journal.json` without the new entry**, so `db:migrate` silently skips
+  applying it — integration tests then fail with `column "<x>" does not exist` even though
+  the migration file exists on disk. After every generate, confirm `_journal.json` lists the
+  new `idx`/`tag`; if missing, add it (idx = file number, tag = filename without `.sql`)
+  (evidence: src/db/migrations/meta/_journal.json idx 10 `0010_bizarre_callisto`).
 - **2026-06-18** — `estimateCost(model, …)` matches the PRICING slug **exactly**, so a
   provider-prefixed model string like `openrouter/deepseek-v4-flash` misses the key
   `deepseek/deepseek-v4-flash` and returns `null` → the cost badge shows "—". If many
@@ -21,6 +27,20 @@ Sections are fixed; append under the matching one. Capture via the
 
 ## Codebase Patterns
 
+- **2026-06-23** — The `brief` module (PR Brief / Intent Layer) derives intent with its
+  **own minimal trusted system prompt + `wrapUntrusted` from reviewer-core**, NOT through
+  `assemblePrompt`/`reviewPullRequest`. That path is review/grounding-shaped (Review schema,
+  findings, citation gate) and would couple the cheap intent pass to a review run. Intent
+  returns the `Intent` schema and has no grounding gate — fencing untrusted inputs
+  (PR title/body, linked-issue body, spec chunks, diff) is the *sole* injection defense here
+  (evidence: src/modules/brief/intent.ts).
+- **2026-06-23** — `pr_brief` is a single-blob cache (`pr_id` PK, `json` jsonb) with a
+  `head_sha` column added for invalidation: read-compare `cached.headSha === pull.headSha`,
+  rebuild on mismatch (no SSE — plain `GET /pulls/:id/brief`). The shared `PrBrief` schema
+  requires all four sections, so a phase that fills only `intent` must persist
+  **empty-but-valid** siblings — `blast:{changed_symbols:[],downstream:[],summary:''}`,
+  `risks:{risks:[]}`, `history:{history:[]}` — so `PrBrief.parse` passes. Never loosen the
+  vendored shared schema to allow partials (evidence: src/modules/brief/service.ts).
 - **2026-06-18** — Run **cost is computed on read, never persisted** (`runCost` →
   `estimateCost` = tokens × price). `agent_runs` stores `tokens_in/out` + `model` only;
   commit `d45ab0d` deliberately dropped the `cost_usd` column. To surface cost, add it
