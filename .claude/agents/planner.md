@@ -43,6 +43,21 @@ description: >
   </commentary>
   </example>
 tools: Read, Grep, Glob, Skill
+skills:
+  # Backend
+  - fastify-best-practices
+  - drizzle-orm-patterns
+  - postgresql-table-design
+  # Frontend / UI
+  - next-best-practices
+  - react-best-practices
+  - react-testing-library
+  # Full-stack (always)
+  - zod
+  - typescript-expert
+  - security
+  # Shared (diagrams in plans)
+  - mermaid-diagram
 model: opus
 color: purple
 ---

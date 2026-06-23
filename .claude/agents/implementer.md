@@ -37,6 +37,19 @@ description: >
   </commentary>
   </example>
 tools: Read, Edit, Write, Grep, Glob, Bash, Skill, TodoWrite
+skills:
+  # Backend (server/ , reviewer-core/)
+  - fastify-best-practices
+  - drizzle-orm-patterns
+  - postgresql-table-design
+  # Frontend / UI (client/)
+  - next-best-practices
+  - react-best-practices
+  - react-testing-library
+  # Full-stack (always)
+  - zod
+  - typescript-expert
+  - security
 model: sonnet
 color: green
 ---
