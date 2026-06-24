@@ -13,6 +13,12 @@ Sections are fixed; append under the matching one. Capture via the
 
 ## What Doesn't Work
 
+- **2026-06-23** — `pnpm db:generate` can emit the migration `.sql` + `meta/00NN_snapshot.json`
+  but **leave `meta/_journal.json` without the new entry**, so `db:migrate` silently skips
+  applying it — integration tests then fail with `column "<x>" does not exist` even though
+  the migration file exists on disk. After every generate, confirm `_journal.json` lists the
+  new `idx`/`tag`; if missing, add it (idx = file number, tag = filename without `.sql`)
+  (evidence: src/db/migrations/meta/_journal.json idx 10 `0010_bizarre_callisto`).
 - **2026-06-18** — `reviewsForPull(db, prId)` returns **every** review kind (both
   `'summary'` and `'review'`), newest-first — it does NOT filter to `kind='review'`.
   So "the latest review" is `reviews.find(r => r.kind === 'review')`, not `reviews[0]`
@@ -28,6 +34,28 @@ Sections are fixed; append under the matching one. Capture via the
 
 ## Codebase Patterns
 
+- **2026-06-23** — The `brief` module (PR Brief / Intent Layer) derives intent with its
+  **own minimal trusted system prompt + `wrapUntrusted` from reviewer-core**, NOT through
+  `assemblePrompt`/`reviewPullRequest`. That path is review/grounding-shaped (Review schema,
+  findings, citation gate) and would couple the cheap intent pass to a review run. Intent
+  returns the `Intent` schema and has no grounding gate — fencing untrusted inputs
+  (PR title/body, linked-issue body, spec chunks, diff) is the *sole* injection defense here
+  (evidence: src/modules/brief/intent.ts).
+- **2026-06-24** — The `brief` service composes its four sections (`intent`, `blast`,
+  `risks`, `history`) with **`Promise.allSettled` + per-section empty-but-valid fallback** —
+  `intent` is the only must-have; any other section's failure (LLM error, **unindexed repo →
+  empty `blast`**, missing merged-PR data → empty `history`, no `risk_brief` key → empty
+  `risks`) degrades that section, never the whole brief. `risk_brief` defaults to
+  `openai/gpt-4.1`, so on a workspace with no OpenAI key the Risks section silently empties —
+  that's expected, not a bug. Verified live: an unsynced repo renders the Blast Radius card in
+  its `0 symbols / no downstream` state (evidence: src/modules/brief/service.ts getOrBuildBrief).
+- **2026-06-23** — `pr_brief` is a single-blob cache (`pr_id` PK, `json` jsonb) with a
+  `head_sha` column added for invalidation: read-compare `cached.headSha === pull.headSha`,
+  rebuild on mismatch (no SSE — plain `GET /pulls/:id/brief`). The shared `PrBrief` schema
+  requires all four sections, so a phase that fills only `intent` must persist
+  **empty-but-valid** siblings — `blast:{changed_symbols:[],downstream:[],summary:''}`,
+  `risks:{risks:[]}`, `history:{history:[]}` — so `PrBrief.parse` passes. Never loosen the
+  vendored shared schema to allow partials (evidence: src/modules/brief/service.ts).
 - **2026-06-18** — Run **cost is computed on read, never persisted** (`runCost` →
   `estimateCost` = tokens × price). `agent_runs` stores `tokens_in/out` + `model` only;
   commit `d45ab0d` deliberately dropped the `cost_usd` column. To surface cost, add it
