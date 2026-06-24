@@ -34,6 +34,14 @@ Sections are fixed; append under the matching one. Capture via the
   returns the `Intent` schema and has no grounding gate — fencing untrusted inputs
   (PR title/body, linked-issue body, spec chunks, diff) is the *sole* injection defense here
   (evidence: src/modules/brief/intent.ts).
+- **2026-06-24** — The `brief` service composes its four sections (`intent`, `blast`,
+  `risks`, `history`) with **`Promise.allSettled` + per-section empty-but-valid fallback** —
+  `intent` is the only must-have; any other section's failure (LLM error, **unindexed repo →
+  empty `blast`**, missing merged-PR data → empty `history`, no `risk_brief` key → empty
+  `risks`) degrades that section, never the whole brief. `risk_brief` defaults to
+  `openai/gpt-4.1`, so on a workspace with no OpenAI key the Risks section silently empties —
+  that's expected, not a bug. Verified live: an unsynced repo renders the Blast Radius card in
+  its `0 symbols / no downstream` state (evidence: src/modules/brief/service.ts getOrBuildBrief).
 - **2026-06-23** — `pr_brief` is a single-blob cache (`pr_id` PK, `json` jsonb) with a
   `head_sha` column added for invalidation: read-compare `cached.headSha === pull.headSha`,
   rebuild on mismatch (no SSE — plain `GET /pulls/:id/brief`). The shared `PrBrief` schema

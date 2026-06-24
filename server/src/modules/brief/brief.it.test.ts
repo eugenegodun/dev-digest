@@ -6,7 +6,7 @@ import { loadConfig } from '../../platform/config.js';
 import { seed } from '../../db/seed.js';
 import { MockLLMProvider, MockGitClient, MockGitHubClient } from '../../adapters/mocks.js';
 import * as t from '../../db/schema.js';
-import type { Intent, PrBrief } from '@devdigest/shared';
+import type { Intent, Risks, PrBrief } from '@devdigest/shared';
 
 const hasDocker = await dockerAvailable();
 const d = hasDocker ? describe : describe.skip;
@@ -23,6 +23,24 @@ const INTENT_FIXTURE: Intent = {
   in_scope: ['rate limiting middleware', 'public API routes'],
   out_of_scope: ['authentication logic', 'database schema'],
 };
+
+const RISKS_FIXTURE: Risks = {
+  risks: [
+    {
+      kind: 'correctness',
+      title: 'Limiter may not cover all routes',
+      explanation: 'Rate limiting is applied only to /api/v1 but other paths are unguarded.',
+      severity: 'medium',
+      file_refs: ['src/middleware/ratelimit.ts'],
+    },
+  ],
+};
+
+/**
+ * Number of LLM structured calls issued per brief build.
+ * Phase 2: intent (1) + risks (1) = 2 calls per build.
+ */
+const LLM_CALLS_PER_BUILD = 2;
 
 const HEAD_SHA_V1 = 'sha-v1-aabbccdd';
 const HEAD_SHA_V2 = 'sha-v2-11223344';
@@ -94,16 +112,24 @@ d('GET /pulls/:id/brief (Testcontainers pg)', () => {
   });
 
   /**
-   * Build the app with a mock LLM returning INTENT_FIXTURE for the 'Intent'
-   * schema, a mock git returning a deterministic diff, and a mock GitHub that
-   * returns no linked_issue (so intent falls back to title+body+diff).
+   * Build the app with a mock LLM returning INTENT_FIXTURE for 'Intent' and
+   * RISKS_FIXTURE for 'Risks', a mock git returning a deterministic diff, and
+   * a mock GitHub that returns no linked_issue (so intent/risks fall back to
+   * title+body+diff).
+   *
+   * Phase 2: each brief build issues 2 LLM structured calls (intent + risks).
+   * Blast and history are derived from DB/repo-intel; with no indexed repo and
+   * no merged PRs in the test seed, both degrade to empty-but-valid.
    */
   function makeApp(llmCallCounts?: { count: number }) {
     // MockLLMProvider id is narrowed to 'openai'|'anthropic'; inject it under
-    // 'openrouter' in overrides so the default review_intent model (openrouter)
-    // resolves to the mock rather than requiring a real API key.
+    // 'openrouter' in overrides so the default feature models (openrouter)
+    // resolve to the mock rather than requiring a real API key.
     const llmProvider = new MockLLMProvider('openai', {
-      structuredBySchema: { Intent: INTENT_FIXTURE },
+      structuredBySchema: {
+        Intent: INTENT_FIXTURE,
+        Risks: RISKS_FIXTURE,
+      },
     });
 
     // Wrap to track calls if a counter object is supplied
@@ -121,12 +147,15 @@ d('GET /pulls/:id/brief (Testcontainers pg)', () => {
       overrides: {
         git: new MockGitClient(),
         github: new MockGitHubClient(),
-        llm: { openrouter: llmProvider },
+        // Provide the mock under all providers so feature models that default
+        // to 'openai' (risk_brief) or 'openrouter' (review_intent) both resolve
+        // to the same mock without requiring real API keys.
+        llm: { openrouter: llmProvider, openai: llmProvider },
       },
     });
   }
 
-  // (1) First GET builds and persists; returns valid PrBrief with populated intent
+  // (1) First GET builds and persists; returns valid PrBrief with all sections populated
   it('first GET builds the brief, persists it, and returns valid PrBrief', async () => {
     const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
     const app = await makeApp();
@@ -137,14 +166,21 @@ d('GET /pulls/:id/brief (Testcontainers pg)', () => {
     expect(res.statusCode, res.body).toBe(200);
     const body = res.json<PrBrief>();
 
-    // Intent is populated
+    // Intent is populated from the LLM mock
     expect(body.intent).toEqual(INTENT_FIXTURE);
-    // Other sections are empty-but-valid
-    expect(body.blast.changed_symbols).toEqual([]);
-    expect(body.blast.downstream).toEqual([]);
-    expect(body.blast.summary).toBe('');
-    expect(body.risks.risks).toEqual([]);
-    expect(body.history.history).toEqual([]);
+
+    // Risks are populated from the LLM mock (Phase 2)
+    expect(body.risks).toEqual(RISKS_FIXTURE);
+    expect(body.risks.risks).toHaveLength(1);
+    expect(body.risks.risks[0]!.severity).toBe('medium');
+
+    // Blast degrades to empty-but-valid (no indexed repo, no clone path in MockGitClient)
+    expect(Array.isArray(body.blast.changed_symbols)).toBe(true);
+    expect(Array.isArray(body.blast.downstream)).toBe(true);
+    expect(typeof body.blast.summary).toBe('string');
+
+    // History degrades to empty-but-valid (no merged PRs seeded for this repo)
+    expect(Array.isArray(body.history.history)).toBe(true);
 
     // Row persisted in the DB
     const rows = await pg.handle.db
@@ -161,12 +197,12 @@ d('GET /pulls/:id/brief (Testcontainers pg)', () => {
 
     const llmCalls = { count: 0 };
 
-    // First request — builds the brief
+    // First request — builds the brief (Phase 2: intent + risks = LLM_CALLS_PER_BUILD calls)
     const app1 = await makeApp(llmCalls);
     const res1 = await app1.inject({ method: 'GET', url: `/pulls/${pr.id}/brief` });
     await app1.close();
     expect(res1.statusCode).toBe(200);
-    expect(llmCalls.count).toBe(1);
+    expect(llmCalls.count).toBe(LLM_CALLS_PER_BUILD);
 
     // Second request (same app instance not needed; same DB)
     const app2 = await makeApp(llmCalls);
@@ -174,10 +210,11 @@ d('GET /pulls/:id/brief (Testcontainers pg)', () => {
     await app2.close();
 
     expect(res2.statusCode).toBe(200);
-    // LLM must NOT have been called a second time
-    expect(llmCalls.count).toBe(1);
+    // LLM must NOT have been called a second time (cache hit)
+    expect(llmCalls.count).toBe(LLM_CALLS_PER_BUILD);
     // Response is structurally identical
     expect(res2.json<PrBrief>().intent).toEqual(INTENT_FIXTURE);
+    expect(res2.json<PrBrief>().risks).toEqual(RISKS_FIXTURE);
   });
 
   // (3) Bumping pull.headSha triggers a rebuild
@@ -186,11 +223,11 @@ d('GET /pulls/:id/brief (Testcontainers pg)', () => {
 
     const llmCalls = { count: 0 };
 
-    // First build
+    // First build (Phase 2: intent + risks = LLM_CALLS_PER_BUILD calls)
     const app1 = await makeApp(llmCalls);
     await app1.inject({ method: 'GET', url: `/pulls/${pr.id}/brief` });
     await app1.close();
-    expect(llmCalls.count).toBe(1);
+    expect(llmCalls.count).toBe(LLM_CALLS_PER_BUILD);
 
     // Simulate a force-push / new commit by updating the PR's head_sha
     await pg.handle.db
@@ -198,14 +235,14 @@ d('GET /pulls/:id/brief (Testcontainers pg)', () => {
       .set({ headSha: HEAD_SHA_V2 })
       .where(eq(t.pullRequests.id, pr.id));
 
-    // Second request after head advanced
+    // Second request after head advanced — must trigger a full rebuild
     const app2 = await makeApp(llmCalls);
     const res2 = await app2.inject({ method: 'GET', url: `/pulls/${pr.id}/brief` });
     await app2.close();
 
     expect(res2.statusCode).toBe(200);
-    // LLM was called a second time because head_sha changed
-    expect(llmCalls.count).toBe(2);
+    // LLM was called again (LLM_CALLS_PER_BUILD more calls) because head_sha changed
+    expect(llmCalls.count).toBe(LLM_CALLS_PER_BUILD * 2);
 
     // Cached row now has the new head_sha
     const [row] = await pg.handle.db
