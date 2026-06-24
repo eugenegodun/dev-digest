@@ -27,6 +27,17 @@ Sections are fixed; append under the matching one. Capture via the
 
 ## Codebase Patterns
 
+- **2026-06-24** — A deterministic compose endpoint (e.g. `GET /pulls/:id/smart-diff`) must
+  read PR files + reviews through the **`ReviewRepository` facade**
+  (`container.reviewRepo.getPrFiles(prId)` / `.reviewsForPull(prId)`), NOT by importing the
+  underlying `modules/reviews/repository/*.repo.js` free functions directly. The facade is the
+  single DB seam for the review domain; importing internals couples the consumer to the reviews
+  module's file layout (caught in architecture review — the first cut imported the free
+  functions). The `smart-diff` module also deliberately OMITS the `brief` module's
+  LLM/cache/`head_sha` machinery: it is pure compute-on-read (no LLM, no cache table, no
+  migration), classifies files via patterns in `constants.ts` (precedence boilerplate → wiring →
+  core), and ends in `SmartDiff.parse()` (evidence: src/modules/smart-diff/service.ts
+  buildSmartDiff).
 - **2026-06-23** — The `brief` module (PR Brief / Intent Layer) derives intent with its
   **own minimal trusted system prompt + `wrapUntrusted` from reviewer-core**, NOT through
   `assemblePrompt`/`reviewPullRequest`. That path is review/grounding-shaped (Review schema,
