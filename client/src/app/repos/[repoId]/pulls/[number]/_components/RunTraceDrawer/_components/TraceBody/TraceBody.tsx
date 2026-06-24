@@ -41,8 +41,8 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
               {trace.specs_read.length === 0 ? (
                 <span style={s.specsNone}>{t("trace.config.none")}</span>
               ) : (
-                trace.specs_read.map((sp) => (
-                  <span key={sp} className="mono" style={s.spec}>
+                trace.specs_read.map((sp, i) => (
+                  <span key={i} className="mono" style={s.spec}>
                     {sp}
                   </span>
                 ))
@@ -72,66 +72,23 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
       <FindingsSection findings={findings} />
 
       <TraceSection icon="FileText" title={t("trace.promptAssembly")} defaultOpen={false}>
-        <PromptBlock
-          label={t("trace.prompt.system")}
-          text={trace.prompt_assembly.system}
-          color={PROMPT_COLORS.system}
-          tokenCount={trace.prompt_assembly.tokens_by_block?.system}
-        />
+        <PromptBlock label={t("trace.prompt.system")} text={trace.prompt_assembly.system} color={PROMPT_COLORS.system} />
         {trace.prompt_assembly.skills != null && (
-          <PromptBlock
-            label={t("trace.prompt.skills")}
-            text={trace.prompt_assembly.skills}
-            color={PROMPT_COLORS.skills}
-            tokenCount={trace.prompt_assembly.tokens_by_block?.skills}
-          />
+          <PromptBlock label={t("trace.prompt.skills")} text={trace.prompt_assembly.skills} color={PROMPT_COLORS.skills} />
         )}
         {trace.prompt_assembly.memory != null && (
-          <PromptBlock
-            label={t("trace.prompt.memory")}
-            text={trace.prompt_assembly.memory}
-            color={PROMPT_COLORS.memory}
-            tokenCount={trace.prompt_assembly.tokens_by_block?.memory}
-          />
+          <PromptBlock label={t("trace.prompt.memory")} text={trace.prompt_assembly.memory} color={PROMPT_COLORS.memory} />
         )}
         {trace.prompt_assembly.repo_map != null && (
-          <PromptBlock
-            label={t("trace.prompt.repoMap")}
-            text={trace.prompt_assembly.repo_map}
-            color={PROMPT_COLORS.repoMap}
-            tokenCount={trace.prompt_assembly.tokens_by_block?.repo_map}
-          />
+          <PromptBlock label={t("trace.prompt.repoMap")} text={trace.prompt_assembly.repo_map} color={PROMPT_COLORS.repoMap} />
         )}
         {trace.prompt_assembly.specs != null && (
-          <PromptBlock
-            label={t("trace.prompt.specs")}
-            text={trace.prompt_assembly.specs}
-            color={PROMPT_COLORS.specs}
-            tokenCount={trace.prompt_assembly.tokens_by_block?.specs}
-          />
+          <PromptBlock label={t("trace.prompt.specs")} text={trace.prompt_assembly.specs} color={PROMPT_COLORS.specs} />
         )}
         {trace.prompt_assembly.callers != null && (
-          <PromptBlock
-            label={t("trace.prompt.callers")}
-            text={trace.prompt_assembly.callers}
-            color={PROMPT_COLORS.callers}
-            tokenCount={trace.prompt_assembly.tokens_by_block?.callers}
-          />
+          <PromptBlock label={t("trace.prompt.callers")} text={trace.prompt_assembly.callers} color={PROMPT_COLORS.callers} />
         )}
-        {trace.prompt_assembly.pr_description != null && (
-          <PromptBlock
-            label={t("trace.prompt.prDescription")}
-            text={trace.prompt_assembly.pr_description}
-            color={PROMPT_COLORS.prDescription ?? PROMPT_COLORS.user}
-            tokenCount={trace.prompt_assembly.tokens_by_block?.pr_description}
-          />
-        )}
-        <PromptBlock
-          label={t("trace.prompt.user")}
-          text={trace.prompt_assembly.user}
-          color={PROMPT_COLORS.user}
-          tokenCount={trace.prompt_assembly.tokens_by_block?.user}
-        />
+        <PromptBlock label={t("trace.prompt.user")} text={trace.prompt_assembly.user} color={PROMPT_COLORS.user} />
       </TraceSection>
 
       <TraceSection

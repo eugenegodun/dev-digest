@@ -48,20 +48,6 @@ export const PromptAssembly = z.object({
   /** PR author's description/body (truncated); null when absent. */
   pr_description: z.string().nullish(),
   user: z.string(),
-  /** Approximate per-block token counts (Math.ceil(chars/4)). Optional so
-      old traces without these fields still parse correctly. */
-  tokens_by_block: z.object({
-    system: z.number().int().optional(),
-    skills: z.number().int().optional(),
-    memory: z.number().int().optional(),
-    specs: z.number().int().optional(),
-    callers: z.number().int().optional(),
-    repo_map: z.number().int().optional(),
-    pr_description: z.number().int().optional(),
-    user: z.number().int().optional(),
-  }).optional(),
-  /** Approximate total prompt tokens (system + user, Math.ceil(chars/4)). */
-  tokens_total: z.number().int().optional(),
 });
 export type PromptAssembly = z.infer<typeof PromptAssembly>;
 
