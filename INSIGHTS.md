@@ -16,6 +16,16 @@ Entry format — cold-actionable, with evidence:
 
 ## What Doesn't Work
 
+- **2026-06-23** — Parallel `implementer` subagents share **one working tree** (no worktree
+  isolation). An agent that runs `git stash` sweeps up *sibling agents'* concurrent
+  uncommitted changes, and a follow-up `git stash drop` destroys them irreversibly. When
+  dispatching implementers concurrently: (1) scope each strictly to non-overlapping files,
+  and (2) explicitly forbid `git stash`/`git stash drop` in the prompt. Also expect transient
+  `typecheck`/`test` failures if one agent reads a shared file mid-edit by another — re-run
+  the check once the wave settles before trusting a failure (evidence: this session — a Task 1
+  implementer triggered an irreversible-local-destruction warning via stash drop; no data was
+  lost because the tree had no pre-existing tracked changes).
+
 ## Codebase Patterns
 
 - **2026-06-18** — `@devdigest/shared` Zod contracts are **vendored into BOTH
