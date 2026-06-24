@@ -155,6 +155,19 @@ describe("SmartDiffView", () => {
     expect(texts).toEqual(["CORE LOGIC", "WIRING", "BOILERPLATE"]);
   });
 
+  it("renders a role-colored square before each group title", () => {
+    const { container } = render(
+      <SmartDiffView smartDiff={SMART_DIFF} prFiles={PR_FILES} reviews={[]} />,
+    );
+
+    const square = (role: string) =>
+      container.querySelector<HTMLElement>(`[data-role-square="${role}"]`);
+
+    expect(square("core")?.style.background).toBe("var(--accent)");
+    expect(square("wiring")?.style.background).toBe("var(--warn)");
+    expect(square("boilerplate")?.style.background).toBe("var(--info)");
+  });
+
   it("boilerplate group is collapsed by default and can be expanded", () => {
     render(
       <SmartDiffView

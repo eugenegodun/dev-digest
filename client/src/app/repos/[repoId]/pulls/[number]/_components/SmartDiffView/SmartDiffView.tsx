@@ -40,6 +40,14 @@ const ROLE_DESCRIPTION: Record<SmartDiffRole, string> = {
   boilerplate: "Lockfiles, snapshots, generated output, and other noise.",
 };
 
+/** Role → marker square color. Reuses existing theme tokens: blue (core),
+ *  amber (wiring), gray (boilerplate). */
+const ROLE_COLOR: Record<SmartDiffRole, string> = {
+  core: "var(--accent)",
+  wiring: "var(--warn)",
+  boilerplate: "var(--info)",
+};
+
 /** Severity sort order for determining "highest" severity. */
 const SEV_RANK: Record<string, number> = {
   CRITICAL: 3,
@@ -429,6 +437,11 @@ function RoleGroup({
         aria-label={`${ROLE_LABEL[group.role]} group — ${group.files.length} file${group.files.length === 1 ? "" : "s"}`}
       >
         <Icon.ChevronRight size={13} style={chevronFor(open)} />
+        <span
+          aria-hidden
+          data-role-square={group.role}
+          style={{ ...s.roleSquare, background: ROLE_COLOR[group.role] }}
+        />
         <span style={s.groupTitle}>{ROLE_LABEL[group.role]}</span>
         <span style={s.groupDescription}>{ROLE_DESCRIPTION[group.role]}</span>
         <span style={s.groupFileCount}>

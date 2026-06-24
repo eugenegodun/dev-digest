@@ -74,6 +74,14 @@ export const s = {
     userSelect: "none",
   } satisfies CSSProperties,
 
+  /** Small colored square before a group title, keyed to the role's risk tier. */
+  roleSquare: {
+    width: 9,
+    height: 9,
+    borderRadius: 2,
+    flexShrink: 0,
+  } satisfies CSSProperties,
+
   groupTitle: {
     fontSize: 11,
     fontWeight: 700,
