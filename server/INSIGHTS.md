@@ -28,6 +28,8 @@ Sections are fixed; append under the matching one. Capture via the
 
 ## Codebase Patterns
 
+- **2026-06-22** — `body_tokens` on the `Skill` DTO is **computed on read** (`container.tokenizer.count(row.body)`) in `toSkillDto`, never persisted — identical pattern to `cost_usd` on runs. `toSkillDto` therefore requires `container: Container` as its second arg; all callers (service.list, service.get, etc.) must pass it (evidence: server/src/modules/skills/helpers.ts).
+
 - **2026-06-18** — Run **cost is computed on read, never persisted** (`runCost` →
   `estimateCost` = tokens × price). `agent_runs` stores `tokens_in/out` + `model` only;
   commit `d45ab0d` deliberately dropped the `cost_usd` column. To surface cost, add it
