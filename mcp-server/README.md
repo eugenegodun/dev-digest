@@ -17,25 +17,87 @@ Design and rationale: [`../docs/mcp-server-development-plan.md`](../docs/mcp-ser
 | `get_conventions` | read | Repository coding conventions |
 | `get_blast_radius` | read | PR impact map (stub — not implemented yet) |
 
-## Prerequisites
+> This server is **standalone**. The repo bootstrap `./scripts/dev.sh` brings up
+> only Postgres + API + web — it does **not** start the MCP server. Run it
+> separately, on demand, with the steps below.
 
-The DevDigest API must be running with a migrated + seeded DB:
+## Run from scratch
+
+Prereqs: Node ≥ 22 · pnpm ≥ 10 · Docker (for Postgres). A real
+`run_agent_on_pr` needs an LLM key (OpenAI / Anthropic / OpenRouter);
+`list_agents` / `list_pulls` / `get_conventions` do not.
+
+### 1. Bring up the engine (API on :3001)
 
 ```bash
-cd ../server
-pnpm db:migrate && pnpm db:seed && pnpm dev   # serves :3001
+# from the repo root — Postgres → migrate → seed → API (+ web)
+./scripts/dev.sh                # everything
+./scripts/dev.sh --no-client    # Postgres + API only
 ```
 
-## Develop
+LLM / GitHub keys for real reviews go in `server/.env` (the script seeds it from
+`.env.example`) or `~/.devdigest/secrets.json`:
+
+```
+OPENAI_API_KEY=...
+ANTHROPIC_API_KEY=...
+GITHUB_TOKEN=...        # to sync PRs from GitHub
+```
+
+Verify it's up: `curl -s localhost:3001/agents | head`.
+
+Manual alternative (no script):
 
 ```bash
-pnpm install
-pnpm dev         # tsx src/index.ts — speaks MCP over stdio
-pnpm typecheck
-pnpm test
+docker compose up -d
+cd server && pnpm install && pnpm db:migrate && pnpm db:seed && pnpm dev
+```
+
+### 2. Start this MCP server (separate terminal)
+
+```bash
+cd mcp-server
+pnpm install            # first time
+cp .env.example .env    # optional; defaults are fine
+pnpm dev                # tsx src/index.ts — speaks MCP over stdio
+# production-style:
+pnpm build && pnpm start
 ```
 
 > stdout is the MCP protocol. All logging goes to **stderr** — never `console.log`.
+> If `pnpm` aborts with `ERR_PNPM_IGNORED_BUILDS`, run the binary directly:
+> `./node_modules/.bin/tsx src/index.ts`.
+
+## Testing
+
+```bash
+# unit tests (mock the HTTP boundary — no API needed)
+pnpm test
+# or, if pnpm's pre-check aborts:
+./node_modules/.bin/vitest run
+```
+
+The server-side conventions route has an integration test (real Postgres via
+testcontainers, needs Docker): `cd ../server && pnpm exec vitest run conventions.it.test`.
+
+Manual checks against a running server:
+
+- **MCP Inspector (interactive GUI)** — best for poking tools by hand:
+  ```bash
+  npx @modelcontextprotocol/inspector pnpm dev
+  ```
+- **Raw stdio smoke** — `tools/list` needs no API; a `tools/call` needs the API up:
+  ```bash
+  printf '%s\n%s\n%s\n' \
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"cli","version":"0"}}}' \
+    '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+    '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+    | ./node_modules/.bin/tsx src/index.ts 2>/dev/null
+  ```
+
+Live end-to-end flow (API must be up): `list_pulls` → take a `pr_id` →
+`list_agents` → take an `agent_id` → `run_agent_on_pr {pr_id, agent_id}` (blocks,
+returns `{verdict, findings[]}`) → `get_findings {pr_id, run_id}` to re-read.
 
 ## Configuration (env)
 
