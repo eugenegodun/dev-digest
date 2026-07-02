@@ -19,6 +19,13 @@ Sections are fixed; append under the matching one. Capture via the
   the migration file exists on disk. After every generate, confirm `_journal.json` lists the
   new `idx`/`tag`; if missing, add it (idx = file number, tag = filename without `.sql`)
   (evidence: src/db/migrations/meta/_journal.json idx 10 `0010_bizarre_callisto`).
+- **2026-06-18** — `reviewsForPull(db, prId)` returns **every** review kind (both
+  `'summary'` and `'review'`), newest-first — it does NOT filter to `kind='review'`.
+  So "the latest review" is `reviews.find(r => r.kind === 'review')`, not `reviews[0]`
+  (a stray summary can sit at index 0). The PR-list score/findings aggregate filters
+  `kind='review'` in SQL; any consumer pairing with it (e.g. the client findings peek)
+  must filter the same way or the counts won't match (evidence:
+  src/modules/reviews/repository/review.repo.ts:58, src/modules/pulls/routes.ts).
 - **2026-06-18** — `estimateCost(model, …)` matches the PRICING slug **exactly**, so a
   provider-prefixed model string like `openrouter/deepseek-v4-flash` misses the key
   `deepseek/deepseek-v4-flash` and returns `null` → the cost badge shows "—". If many
@@ -82,6 +89,16 @@ Sections are fixed; append under the matching one. Capture via the
 - **Rate limiting:** global 120/min (disabled under `NODE_ENV=test`), tighter
   per-route caps on expensive endpoints; SSE and `/health*` are exempt.
 - The engine reaps orphaned `running` runs on boot.
+- **2026-06-18** — Severity tallies have a tested pure helper: `rollupSeverities(rows)`
+  in `modules/pulls/status.ts` → `{ critical, warning, suggestion }` (**lowercase** keys),
+  ignoring any unknown severity. Reuse it instead of inlining a `for` loop; the PR-list
+  `PrMeta.findings` aggregate maps its lowercase keys → the contract's UPPERCASE keys
+  (evidence: src/modules/pulls/status.ts:23, src/modules/pulls/routes.ts).
+- **2026-06-18** — The PR-list `score`, `cost_usd`, and now `findings` are all computed
+  on read from the PR's **latest `kind='review'` review only** (newest `createdAt`),
+  never summed across runs — so the list matches the detail page. New per-PR list
+  aggregates should follow this same "latest review" rule (evidence:
+  src/modules/pulls/routes.ts the latestReviewByPr block).
 
 ## Tool & Library Notes
 

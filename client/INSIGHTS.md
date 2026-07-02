@@ -31,6 +31,16 @@ Sections are fixed; append under the matching one. Capture via the
   from there rather than defining its own — keep one source so the trace stat card and
   the `RunCostBadge` stay consistent (evidence: src/lib/format-cost.ts,
   src/components/RunCostBadge/RunCostBadge.tsx).
+- **2026-06-18** — `FindingsSeverity` (`@/components/FindingsSeverity`) is the shared
+  findings counter + click-to-open anchored peek popover, reused by the PR-list FINDINGS
+  column (`PRRow`) and the detail-timeline run rows (`RunHistory`). Counts come from
+  `PrMeta.findings` (latest review, server-computed); the popover BODY loads lazily. On
+  the list, `PRRow` only enables `usePrReviews(open ? pr.id : null)` once the popover
+  opens (via `onOpenChange`), then lists `reviews.find(r => r.kind==='review')?.findings`
+  — the `kind==='review'` filter is mandatory so the listed findings match the count
+  (reviews include `'summary'` kind, newest-first). The popover deliberately does NOT
+  reuse `FindingCard` (that has accept/dismiss); `FindingPeekItem` is read-only
+  (evidence: src/components/FindingsSeverity/, src/app/repos/[repoId]/pulls/_components/PRRow/PRRow.tsx).
 - **2026-06-18** — `RunCostBadge` (`@/components/RunCostBadge`) has two views: `compact`
   ("$0.014") for the PR-list cost column + review-run header, `detailed`
   ("$0.014 · 8k→1.3k") for the timeline + verdict plate. Null/no-data cost renders "—",

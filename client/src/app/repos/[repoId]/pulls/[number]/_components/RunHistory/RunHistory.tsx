@@ -3,8 +3,9 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
-import type { RunSummary, PrCommit } from "@devdigest/shared";
+import type { RunSummary, PrCommit, Finding } from "@devdigest/shared";
 import { RunCostBadge } from "@/components/RunCostBadge";
+import { FindingsPeekPopover, countsFromFindings } from "@/components/FindingsSeverity";
 
 /**
  * PR timeline — every agent run interleaved with the PR's commits, newest-first
@@ -88,12 +89,16 @@ function tsOf(s: string | null | undefined): number {
 export function RunHistory({
   runs,
   commits = [],
+  findingsByRun,
   onOpenTrace,
   onGoToReview,
   onDelete,
 }: {
   runs: RunSummary[];
   commits?: PrCommit[];
+  /** This run's findings, keyed by run_id — powers the severity counter + peek
+   *  popover. Absent → the row falls back to the plain findings-count text. */
+  findingsByRun?: Record<string, Finding[]>;
   /** Open the trace + log drawer for a run (the logs icon). */
   onOpenTrace: (runId: string) => void;
   /** Jump to this run's inline review accordion below (clicking the agent name). */
@@ -189,12 +194,26 @@ export function RunHistory({
                   {r.error}
                 </div>
               )}
-              {settled && (
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("runStatus.findings", { count: r.findings_count ?? 0 })}
-                  {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
-                </div>
-              )}
+              {settled &&
+                (() => {
+                  const runFindings = findingsByRun?.[r.run_id] ?? [];
+                  return (
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text-muted)" }}
+                    >
+                      {runFindings.length > 0 ? (
+                        <FindingsPeekPopover
+                          counts={countsFromFindings(runFindings)}
+                          findings={runFindings}
+                          title={t("runStatus.findings", { count: runFindings.length })}
+                        />
+                      ) : (
+                        <span>{t("runStatus.findings", { count: r.findings_count ?? 0 })}</span>
+                      )}
+                      {(r.blockers ?? 0) > 0 ? <span>{t("runStatus.blockers", { count: r.blockers ?? 0 })}</span> : null}
+                    </div>
+                  );
+                })()}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
               {r.ran_at && <span>{new Date(r.ran_at).toLocaleTimeString()}</span>}
