@@ -11,9 +11,20 @@ Sections are fixed; append under the matching one. Capture via the
 
 ## What Works
 
+- **2026-06-24** — `useFeatureToggle` did not exist in the codebase when Smart Diff was implemented. The CLAUDE.md convention "feature gating uses `useFeatureToggle`, not localStorage" implied it should be created as a thin env-var hook (`NEXT_PUBLIC_FEATURE_<NAME>` → enabled unless `"0"`). Default-on (opt-out) was chosen so new features ship enabled. Created at `src/lib/hooks/feature-toggles.ts`. (evidence: client/src/lib/hooks/feature-toggles.ts)
+- **2026-06-24 (correction to the note above)** — Feature-toggle gating is **NOT wanted in dev-digest** — that convention came from a different project and was removed from the user's global instructions. The env-var hook was deleted (`src/lib/hooks/feature-toggles.ts` left as an inert `export {}` stub pending file deletion) and Smart Diff ships **always-on** with no flag (a plain `useState` Smart/Original toggle, no gate). Do NOT reintroduce `useFeatureToggle`/`NEXT_PUBLIC_FEATURE_*` here; new user-facing surfaces are unconditional (evidence: client/src/app/repos/[repoId]/pulls/[number]/_components/DiffTab/DiffTab.tsx).
+
 ## What Doesn't Work
 
+- **2026-06-24** — `@testing-library/user-event` is **not installed** in the client package (only `@testing-library/react` and `@testing-library/jest-dom` are present). Tests that need click interactions must use `fireEvent.click()` from `@testing-library/react`, not `userEvent`. Attempting to import `user-event` causes a Vite import-analysis error at test-collect time, failing the whole suite silently. (evidence: client/node_modules/@testing-library — only `jest-dom` and `react` dirs exist)
+
+- **2026-06-24** — `Icon.FolderOpen` does not exist in the vendored icon registry. The icons.tsx only exports `Folder`. Using an unregistered name (`Icon.FolderOpen`) fails at runtime with "element type is invalid: got undefined" — the error appears in `SplitBanner`'s render, not at the call site. Always verify icon names against `client/src/vendor/ui/icons.tsx` before using them. (evidence: client/src/vendor/ui/icons.tsx)
+
 ## Codebase Patterns
+
+- **2026-06-24** — `FileCard` (diff-viewer) manages its own open/close state via internal `useState` and does NOT expose an external control prop. Components that need programmatic expand (e.g. "click badge → expand and scroll") must build their own file-card rather than trying to wrap `FileCard`. The plan says "reuse FileCard" — in practice this means reusing `parsePatch` and following the FileCard visual idiom, not importing the component itself when external control is needed. (evidence: client/src/components/diff-viewer/FileCard/FileCard.tsx:36)
+
+- **2026-06-24** — Group headers and file headers in SmartDiffView both render with `role="button"`. When testing badge clicks with `getByRole("button")`, always use a disambiguating `name` option (e.g. `{ name: /click to expand and jump to first/i }`) or `getAllByRole` will match both the file header and the badge. (evidence: SmartDiffView.test.tsx)
 
 - **2026-06-18** — Shared run formatting (`formatCost`, `formatTokens`) lives in
   `src/lib/format-cost.ts`; `RunTraceDrawer/helpers.ts` **re-exports** `formatTokens`
