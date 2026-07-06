@@ -17,6 +17,7 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [security](security/SKILL.md) | Full-stack | OWASP Top 10:2025, auth, injection, uploads, secrets |
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
 | [engineering-insights](engineering-insights/SKILL.md) | Shared | Capture non-obvious learnings into the touched module's INSIGHTS.md (capture-learnings loop) |
+| [sdd](sdd/SKILL.md) | Orchestration | `/sdd <plan>` — runs the SDD execution phase (implement → architecture-review → fix-loop → plan-verify → report) from an approved plan; all agents on Sonnet, test-writer off, leaves changes uncommitted |
 
 ## What Are Skills?
 
