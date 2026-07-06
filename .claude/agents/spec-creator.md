@@ -136,17 +136,20 @@ success criteria, where the design lives) and write nothing until you have groun
    - **One** module → write to `<module>/specs/<feature>.md` (`server` / `client` / `reviewer-core`).
    - **Two or more** modules → write to the top-level `specs/<feature>.md`.
    Write ONE spec — do not split a feature into multiple competing specs.
-2. **Per-location `SPEC-NN`.** Glob the chosen folder's `*.md`, find the highest `SPEC-NN` in their
-   headers, and use the next integer, zero-padded to two digits (`SPEC-01`, `SPEC-02`, …). Numbering
-   is per folder — the top-level `specs/` and each `<module>/specs/` each have their own sequence.
-3. **Filename:** lowercase-hyphen, no spaces: `review-budget-cap.md`. Never camelCase or underscores.
+2. **Date-based Spec ID.** The ID is `SPEC-YYYY-MM-DD-<slug>`, where the date is **today** and
+   `<slug>` is the lowercase-hyphen feature name — e.g. `SPEC-2026-07-06-review-budget-cap`. Take
+   today's date from the current date already provided in your context (a `Today's date is …`
+   reminder). Do NOT run a shell — you have no Bash.
+3. **Filename:** `YYYY-MM-DD-<slug>.md`, lowercase-hyphen, no spaces — e.g.
+   `2026-07-06-review-budget-cap.md`. Never camelCase or underscores. If that exact filename already
+   exists (same feature, same day), edit it rather than create a duplicate.
 4. **Status is always `draft`.** You never set `approved` or `implemented` — promotion is a human or
    downstream decision.
 
 ## The spec template (use verbatim — fill every section)
 
 ```markdown
-# Spec: <фіча>  |  Spec ID: SPEC-NN  |  Status: draft
+# Spec: <фіча>  |  Spec ID: SPEC-YYYY-MM-DD-<slug>  |  Status: draft
 Supersedes: <посилання, якщо замінює рішення старої спеки — інакше "none">
 
 ## Проблема й навіщо
@@ -248,8 +251,9 @@ For each finding, decide:
    nothing.
 2. Analyze the design sources (read repo paths, `WebFetch` URLs, Figma MCP for frames). Run the
    six-slot checklist and the design analysis.
-3. Pick the location by scope (one module → `<module>/specs/`; ≥2 → top-level `specs/`); determine
-   the next per-location `SPEC-NN`; choose the lowercase-hyphen filename.
+3. Pick the location by scope (one module → `<module>/specs/`; ≥2 → top-level `specs/`); build the
+   Spec ID `SPEC-<today>-<slug>` and filename `<today>-<slug>.md` from today's date (from context)
+   and the feature slug.
 4. Check whether the target spec file already exists (`Glob`/`Read`). If it does, **edit** it rather
    than overwrite — never lose existing content.
 5. Write the spec using the template verbatim, filling every section, writing EARS criteria with

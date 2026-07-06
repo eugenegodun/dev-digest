@@ -12,18 +12,17 @@ truth that plans and tests are checked against. Specs are authored by the `spec-
 
 | Scope of the feature | Location |
 |---|---|
-| Touches **one** module | `<module>/specs/<feature>.md` (`server` / `client` / `reviewer-core`) |
-| Touches **≥ 2** modules | `specs/<feature>.md` (this folder) |
+| Touches **one** module | `<module>/specs/YYYY-MM-DD-<slug>.md` (`server` / `client` / `reviewer-core`) |
+| Touches **≥ 2** modules | `specs/YYYY-MM-DD-<slug>.md` (this folder) |
 
 > `e2e/specs/` is unrelated — those are `.flow.json` e2e flows, not SDD specs.
 
 ## Naming convention
 
-- Filename: **lowercase-hyphen**, no spaces — `review-budget-cap.md`, not `ReviewBudgetCap.md`.
-- Each spec carries a per-location `SPEC-NN` in its header, zero-padded (`SPEC-01`, `SPEC-02`, …).
-  Numbering is per folder: this top-level `specs/` has its own sequence, and each `<module>/specs/`
-  has its own.
-- Header line: `# Spec: <feature>  |  Spec ID: SPEC-NN  |  Status: <status>`.
+- Filename: `YYYY-MM-DD-<slug>.md` — creation date + **lowercase-hyphen** feature slug, no spaces
+  (e.g. `2026-07-06-review-budget-cap.md`). Never camelCase or underscores.
+- Spec ID mirrors the filename: `SPEC-YYYY-MM-DD-<slug>` (e.g. `SPEC-2026-07-06-review-budget-cap`).
+- Header line: `# Spec: <feature>  |  Spec ID: SPEC-YYYY-MM-DD-<slug>  |  Status: <status>`.
 
 ## Status lifecycle
 
@@ -39,7 +38,7 @@ draft ──▶ approved ──▶ implemented
 ## SDD chain
 
 ```
-spec-creator ──▶ specs/<feature>.md ──▶ implementation-planner ──▶ docs/plans/<slug>.md ──▶ implementer × N
+spec-creator ──▶ specs/YYYY-MM-DD-<slug>.md ──▶ implementation-planner ──▶ docs/plans/<slug>.md ──▶ implementer × N
 ```
 
 The spec is the input to the `implementation-planner`; the plan is the input to the `implementer`s.
