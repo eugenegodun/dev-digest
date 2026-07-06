@@ -9,7 +9,8 @@ shared via version control. Each agent is a single Markdown file: YAML frontmatt
 | Agent | Model | Tools | What it does |
 |-------|-------|-------|--------------|
 | [researcher](researcher.md) | sonnet | read-only + web | Single-pass factual lookup from the project **or** the internet; returns a strict, cited report, never guesses. |
-| [planner](planner.md) | opus | read-only (`Read, Grep, Glob, Skill`) | Turns a request into a structured, phased **Development Plan** under `docs/plans/`, with per-task file lists, skill assignments, and distilled INSIGHTS. Plan-only. |
+| [spec-creator](spec-creator.md) | opus | `Read, Grep, Glob, Write, Edit, WebFetch, Skill` | Authors a **Spec** (SDD) from a feature idea + design sources: analyzes the design for corner cases, cross-module gaps, and UX improvements, then writes one `Status: draft` spec (fixed template + EARS acceptance criteria) — single-module → `<module>/specs/`, cross-module → top-level `specs/` — and updates that folder's README index. Writes **only** `specs/**` and `*/specs/**` (not `e2e/specs`); never guesses — open items go to `[NEEDS CLARIFICATION]`. First pipeline stage, before the planner. |
+| [implementation-planner](implementation-planner.md) | opus | read-only (`Read, Grep, Glob, Skill`) | Turns **already-defined requirements** into a structured, phased **Implementation Plan** under `docs/plans/`, with per-task file lists, skill assignments, and distilled INSIGHTS. Reviews the requirements for gaps, clarifies, recommends improvements, and asks single- vs multi-agent mode. Never authors specs; plan-only. |
 | [implementer](implementer.md) | sonnet | `Read, Edit, Write, Grep, Glob, Bash, Skill, TodoWrite` | Implements **one** plan task (backend or UI), routing skills by module, working TDD, self-verifying code only. Runs in parallel; leaves changes uncommitted. |
 | [test-writer](test-writer.md) | sonnet | `Read, Edit, Write, Grep, Glob, Bash, Skill, TodoWrite` | Authors tests for the **UI** (`client/`, RTL+jsdom) and **backend** (`server/`/`reviewer-core/`, Fastify `.inject()` / testcontainers), routing skills by module; tests the seams, never weakens an assertion or edits product code to pass. |
 | [architecture-reviewer](architecture-reviewer.md) | opus | read-only (`Read, Grep, Glob, Skill`) | **Architectural** review (boundaries, dependency direction, coupling/cohesion, contracts, trust boundaries) at C4 Container/Component altitude — not line-style nitpicks, not a full security audit. Findings grouped Critical/Important/Minor with a recommendation, not a rewrite. |
@@ -19,7 +20,7 @@ shared via version control. Each agent is a single Markdown file: YAML frontmatt
 ## How they fit together
 
 ```
-request ──▶ planner ──▶ docs/plans/<slug>.md ──▶ implementer × N (parallel) ──▶ uncommitted changes
+spec-creator ──▶ */specs/<feature>.md ──▶ implementation-planner ──▶ docs/plans/<slug>.md ──▶ implementer × N (parallel) ──▶ uncommitted changes
                             │                         │                              │
                             │                         └─ researcher (on demand)      ├─ test-writer (adds tests)
                             │                                                        ├─ architecture-reviewer (read-only)
@@ -27,7 +28,7 @@ request ──▶ planner ──▶ docs/plans/<slug>.md ──▶ implementer �
                                                                                      └─ doc-writer (writes docs/**)
 ```
 
-The **planner** breaks work into non-overlapping tracks (by file set) so multiple **implementer**
+The **implementation-planner** breaks work into non-overlapping tracks (by file set) so multiple **implementer**
 agents can run concurrently without colliding — there is no worktree isolation, so file ownership
 is the conflict guard. The **researcher** is an independent read-only helper for factual lookups.
 
@@ -40,7 +41,7 @@ instructions.
 
 ## What the agents are based on
 
-### planner & implementer
+### implementation-planner & implementer
 
 Both were designed from a survey of published best practices for agentic coding (see **Sources**
 below), adapted to DevDigest's module layout and skills. Key practices applied:
@@ -132,7 +133,7 @@ design docs, and turns handed-in material into documentation with diagrams:
 
 ## Sources
 
-Best practices behind **planner** and **implementer**:
+Best practices behind **implementation-planner** and **implementer**:
 
 - [Create custom subagents — Claude Code Docs](https://code.claude.com/docs/en/sub-agents) — frontmatter fields (`tools`, `skills`, `model`, `permissionMode`), built-in Plan subagent, "subagent sees only its own system prompt."
 - [Best practices for Claude Code — Claude Code Docs](https://code.claude.com/docs/en/best-practices) — separate research/planning from implementation; self-contained specs; verification-first.
